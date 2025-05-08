@@ -76,7 +76,7 @@
       <div class="mb-4">
         <input type="text" id="search-input" placeholder="Search orders..." class="w-full border rounded px-3 py-2" />
       </div>
-      <div id="orders-list" class="overflow-x-auto">
+      <div id="orders-list" class="overflow-x-auto max-w-full" style="overflow-y: hidden;">
         <!-- Orders table will be rendered here -->
       </div>
     </section>
@@ -160,6 +160,7 @@
             <td class="border px-3 py-1">${order.status_employer || ''}</td>
             <td class="border px-3 py-1 space-x-1">
               <button class="edit-btn bg-yellow-400 px-2 py-1 rounded text-sm" data-id="${order.id}">Edit</button>
+              <button class="history-btn bg-gray-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">View History</button>
               <button class="email-btn bg-green-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">Send Email</button>
             </td>
           </tr>
@@ -173,6 +174,13 @@
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-id');
           openEditModal(id);
+        });
+      });
+
+      document.querySelectorAll('.history-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          openHistoryModal(id);
         });
       });
 
@@ -275,6 +283,10 @@
                   <label class="block font-medium mb-1">Status Employer</label>
                   <input type="text" id="edit-status-employer" class="w-full border rounded px-3 py-2" required>
                 </div>
+                <div>
+                  <h4 class="text-lg font-semibold mt-6 mb-2">Order History</h4>
+                  <div id="order-history" class="max-h-48 overflow-y-auto border rounded p-2 bg-gray-50 text-sm text-gray-700"></div>
+                </div>
                 <div class="flex justify-end space-x-2 mt-4">
                   <button type="button" onclick="closeEditModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Cancel</button>
                   <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Changes</button>
@@ -299,6 +311,19 @@
           document.getElementById('edit-selector').value = order.selector;
           document.getElementById('edit-status').value = order.status;
           document.getElementById('edit-status-employer').value = order.status_employer || '';
+
+          // Render order history
+          const historyDiv = document.getElementById('order-history');
+          if (order.history && order.history.length > 0) {
+            historyDiv.innerHTML = order.history.map(h => {
+              return `<div class="border-b border-gray-300 py-1">
+                <div><strong>${h.changed_field}</strong> changed from <em>${h.old_value || ''}</em> to <em>${h.new_value || ''}</em></div>
+                <div>By: <strong>${h.changed_by || 'Unknown'}</strong> at ${new Date(h.changed_at).toLocaleString('de-DE')}</div>
+              </div>`;
+            }).join('');
+          } else {
+            historyDiv.innerHTML = '<div class="text-gray-500">No changes recorded.</div>';
+          }
 
           const form = document.getElementById('edit-form');
           form.onsubmit = async (e) => {
@@ -347,6 +372,53 @@
       const toEmail = prompt('Enter recipient email address:');
       if (toEmail) {
         sendOrderEmail(id, toEmail);
+      }
+    }
+
+    // Modal for viewing order history
+    function openHistoryModal(id) {
+      const modalHtml = `
+        <div id="history-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+          <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+              <h3 class="text-lg font-medium mb-4">Order History</h3>
+              <div id="history-content" class="max-h-64 overflow-y-auto border rounded p-2 bg-gray-50 text-sm text-gray-700"></div>
+              <div class="flex justify-end mt-4">
+                <button type="button" onclick="closeHistoryModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      // Fetch order history
+      fetch(`/api/orders/${id}`)
+        .then(res => res.json())
+        .then(order => {
+          const historyDiv = document.getElementById('history-content');
+          if (order.history && order.history.length > 0) {
+            historyDiv.innerHTML = order.history.map(h => {
+              return `<div class="border-b border-gray-300 py-1">
+                <div><strong>${h.changed_field}</strong> changed from <em>${h.old_value || ''}</em> to <em>${h.new_value || ''}</em></div>
+                <div>By: <strong>${h.changed_by || 'Unknown'}</strong> at ${new Date(h.changed_at).toLocaleString('de-DE')}</div>
+              </div>`;
+            }).join('');
+          } else {
+            historyDiv.innerHTML = '<div class="text-gray-500">No changes recorded.</div>';
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching order history:', err);
+          alert('Failed to load order history');
+        });
+    }
+
+    function closeHistoryModal() {
+      const modal = document.getElementById('history-modal');
+      if (modal) {
+        modal.remove();
       }
     }
 
