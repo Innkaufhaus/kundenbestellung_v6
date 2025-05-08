@@ -48,30 +48,17 @@ function generateOrderNumber() {
     Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 }
 
-// API to create a new order
-app.post('/api/orders', (req, res) => {
-  const {
-    customer_name,
-    phone,
-    email,
-    description,
-    employer_name,
-    selector
-  } = req.body;
-
-  const order_number = generateOrderNumber();
-  const order_date = new Date().toISOString();
-
-  const sql = `INSERT INTO orders 
-    (order_number, order_date, customer_name, phone, email, description, employer_name, selector, status) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'offen')`;
-
-  db.run(sql, [order_number, order_date, customer_name, phone, email, description, employer_name, selector], function(err) {
+// API to get a single order by ID
+app.get('/api/orders/:id', (req, res) => {
+  const id = req.params.id;
+  db.get('SELECT * FROM orders WHERE id = ?', [id], (err, order) => {
     if (err) {
       console.error(err.message);
-      res.status(500).json({ error: 'Failed to create order' });
+      res.status(500).json({ error: 'Failed to retrieve order' });
+    } else if (!order) {
+      res.status(404).json({ error: 'Order not found' });
     } else {
-      res.json({ id: this.lastID, order_number, order_date });
+      res.json(order);
     }
   });
 });
@@ -98,6 +85,34 @@ app.get('/api/orders', (req, res) => {
       res.status(500).json({ error: 'Failed to retrieve orders' });
     } else {
       res.json(rows);
+    }
+  });
+});
+
+// API to create a new order
+app.post('/api/orders', (req, res) => {
+  const {
+    customer_name,
+    phone,
+    email,
+    description,
+    employer_name,
+    selector
+  } = req.body;
+
+  const order_number = generateOrderNumber();
+  const order_date = new Date().toISOString();
+
+  const sql = `INSERT INTO orders 
+    (order_number, order_date, customer_name, phone, email, description, employer_name, selector, status) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'offen')`;
+
+  db.run(sql, [order_number, order_date, customer_name, phone, email, description, employer_name, selector], function(err) {
+    if (err) {
+      console.error(err.message);
+      res.status(500).json({ error: 'Failed to create order' });
+    } else {
+      res.json({ id: this.lastID, order_number, order_date });
     }
   });
 });

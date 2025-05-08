@@ -12,6 +12,6 @@
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "nodemailer": "^6.9.3",
-    "barcode-generator": "^1.0.0"
+    "jsbarcode": "^3.11.5"
   }
 }
