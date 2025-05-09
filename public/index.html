@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Order Tracking</title>
+  <title>Kundenbestellung Tracking</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
@@ -15,10 +15,10 @@
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
   <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow">
-    <h1 class="text-3xl font-bold mb-6 text-center">Customer Order Tracking</h1>
+    <h1 class="text-3xl font-bold mb-6 text-center">Kundenbestellung Tracking</h1>
 
     <section id="order-form-section" class="mb-10">
-      <h2 class="text-xl font-semibold mb-4">New Order</h2>
+      <h2 class="text-xl font-semibold mb-4">Neue Bestellung</h2>
       <form id="order-form" class="space-y-4 bg-gray-50 p-4 rounded shadow">
         <div class="flex justify-between items-center">
           <div>
@@ -26,20 +26,20 @@
             <input type="text" id="order-date" readonly class="border rounded px-3 py-2 bg-gray-200" />
           </div>
           <div class="text-center">
-            <label class="block font-medium mb-1">Order Number</label>
+            <label class="block font-medium mb-1">Bestellnummer</label>
             <div id="order-number" class="text-lg font-mono mb-1"></div>
             <canvas id="barcode"></canvas>
           </div>
         </div>
 
         <div>
-          <label for="customer-name" class="block font-medium mb-1">Name of the person who is ordering</label>
+          <label for="customer-name" class="block font-medium mb-1">Kunde</label>
           <input type="text" id="customer-name" required class="w-full border rounded px-3 py-2" />
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label for="phone" class="block font-medium mb-1">Phone Number</label>
+            <label for="phone" class="block font-medium mb-1">Telefon</label>
             <input type="tel" id="phone" required class="w-full border rounded px-3 py-2" />
           </div>
           <div>
@@ -49,17 +49,22 @@
         </div>
 
         <div>
-          <label for="description" class="block font-medium mb-1">Description of order</label>
+          <label for="description" class="block font-medium mb-1">Beschreibung der Bestellung</label>
           <textarea id="description" rows="3" class="w-full border rounded px-3 py-2"></textarea>
         </div>
 
         <div>
-          <label for="employer-name" class="block font-medium mb-1">Employer Name</label>
+          <label for="employer-name" class="block font-medium mb-1">Mitarbeiter</label>
           <input type="text" id="employer-name" required class="w-full border rounded px-3 py-2" />
         </div>
 
         <div>
-          <label for="selector" class="block font-medium mb-1">Selector</label>
+          <label for="manufacturer-supplier" class="block font-medium mb-1">Hersteller/Lieferant</label>
+          <input type="text" id="manufacturer-supplier" class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <div>
+          <label for="selector" class="block font-medium mb-1">Status</label>
           <select id="selector" class="w-full border rounded px-3 py-2">
             <option value="Zur Ansicht">Zur Ansicht</option>
             <option value="Eilt!">Eilt!</option>
@@ -67,14 +72,25 @@
           </select>
         </div>
 
-        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Save Order</button>
+        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Bestellung speichern</button>
       </form>
     </section>
 
     <section id="orders-section">
-      <h2 class="text-xl font-semibold mb-4">All Orders</h2>
-      <div class="mb-4">
-        <input type="text" id="search-input" placeholder="Search orders..." class="w-full border rounded px-3 py-2" />
+      <h2 class="text-xl font-semibold mb-4">Alle Bestellungen</h2>
+      <div class="mb-4 flex flex-col md:flex-row md:items-center md:space-x-4">
+        <input type="text" id="search-input" placeholder="Bestellungen suchen..." class="w-full md:w-1/2 border rounded px-3 py-2 mb-2 md:mb-0" />
+        <select id="status-filter" class="w-full md:w-1/4 border rounded px-3 py-2">
+          <option value="">Alle Status</option>
+          <option value="offen">offen</option>
+          <option value="bestellt">bestellt</option>
+          <option value="nicht lieferbar">nicht lieferbar</option>
+          <option value="geliefert">geliefert</option>
+          <option value="benachrichtigt">benachrichtigt</option>
+          <option value="abgeholt">abgeholt</option>
+          <option value="abgebrochen">abgebrochen</option>
+        </select>
+        <button id="status-filter-btn" type="button" class="mt-2 md:mt-0 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Show</button>
       </div>
       <div id="orders-list" class="overflow-x-auto max-w-full" style="overflow-y: hidden;">
         <!-- Orders table will be rendered here -->
@@ -83,6 +99,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
     const orderForm = document.getElementById('order-form');
     const orderDateInput = document.getElementById('order-date');
@@ -103,19 +120,106 @@
     }
 
     async function createOrder(data) {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      return res.json();
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to save order');
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error('Error creating order:', error);
+        throw error;
+      }
     }
 
-    async function fetchOrders(search = '') {
-      const res = await fetch('/api/orders?search=' + encodeURIComponent(search));
-      const orders = await res.json();
-      renderOrders(orders);
+    orderForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const data = {
+          customer_name: document.getElementById('customer-name').value,
+          phone: document.getElementById('phone').value,
+          email: document.getElementById('email').value,
+          description: document.getElementById('description').value,
+          employer_name: document.getElementById('employer-name').value,
+          manufacturer_supplier: document.getElementById('manufacturer-supplier').value,
+          selector: document.getElementById('selector').value
+        };
+        
+        const result = await createOrder(data);
+        if (result.order_number) {
+          currentOrderNumber = result.order_number;
+          orderNumberDiv.textContent = currentOrderNumber;
+          JsBarcode(barcodeCanvas, currentOrderNumber, {
+            format: 'CODE128',
+            width: 2,
+            height: 50,
+            displayValue: false
+          });
+          alert('Order saved with number: ' + currentOrderNumber);
+          resetForm();
+          fetchOrders();
+        } else {
+          throw new Error('No order number received from server');
+        }
+      } catch (error) {
+        console.error('Error in form submission:', error);
+        alert('Failed to save order: ' + (error.message || 'Unknown error occurred'));
+      }
+    });
+
+    async function fetchOrders(search = '', status = '') {
+      try {
+        let url = '/api/orders?search=' + encodeURIComponent(search);
+        if (status) {
+          url += '&status=' + encodeURIComponent(status);
+        }
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to fetch orders');
+        }
+        
+        const orders = await res.json();
+        renderOrders(orders);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        ordersListDiv.innerHTML = `<p class="text-center text-red-500">Error loading orders: ${error.message}</p>`;
+      }
     }
+
+    document.getElementById('search-input').addEventListener('input', () => {
+      const searchValue = document.getElementById('search-input').value;
+      const statusValue = document.getElementById('status-filter').value;
+      fetchOrders(searchValue, statusValue);
+    });
+
+    document.getElementById('status-filter-btn').addEventListener('click', () => {
+      const searchValue = document.getElementById('search-input').value;
+      const statusValue = document.getElementById('status-filter').value;
+      fetchOrders(searchValue, statusValue);
+    });
+
+    document.getElementById('status-filter').addEventListener('change', () => {
+      const searchValue = document.getElementById('search-input').value;
+      const statusValue = document.getElementById('status-filter').value;
+      fetchOrders(searchValue, statusValue);
+    });
+
+    document.getElementById('search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const searchValue = document.getElementById('search-input').value;
+        const statusValue = document.getElementById('status-filter').value;
+        fetchOrders(searchValue, statusValue);
+      }
+    });
 
     function renderOrders(orders) {
       if (orders.length === 0) {
@@ -127,41 +231,57 @@
       html += `
         <thead class="bg-gray-200">
           <tr>
-            <th class="border px-3 py-1">Order Number</th>
-            <th class="border px-3 py-1">Date</th>
-            <th class="border px-3 py-1">Customer Name</th>
-            <th class="border px-3 py-1">Phone</th>
+            <th class="border px-3 py-1">Bestellnummer</th>
+            <th class="border px-3 py-1">Datum</th>
+            <th class="border px-3 py-1">Kunde</th>
+            <th class="border px-3 py-1">Telefon</th>
             <th class="border px-3 py-1">Email</th>
-            <th class="border px-3 py-1">Description</th>
-            <th class="border px-3 py-1">Employer</th>
-            <th class="border px-3 py-1">Selector</th>
+            <th class="border px-3 py-1">Beschreibung</th>
+            <th class="border px-3 py-1">Mitarbeiter</th>
+            <th class="border px-3 py-1">Hersteller/Lieferant</th>
             <th class="border px-3 py-1">Status</th>
-            <th class="border px-3 py-1">Status Timestamp</th>
-            <th class="border px-3 py-1">Status Employer</th>
-            <th class="border px-3 py-1">Actions</th>
+            <th class="border px-3 py-1">Letzte Änderung</th>
+            <th class="border px-3 py-1">Geändert von</th>
+            <th class="border px-3 py-1">Aktionen</th>
           </tr>
         </thead>
         <tbody>
       `;
 
       orders.forEach(order => {
+        // Determine status color and sticker
+        let statusClass = '';
+        let stickerHtml = '';
+        if (order.status === 'geliefert') {
+          statusClass = 'bg-yellow-300';
+        } else if (order.status === 'benachrichtigt') {
+          statusClass = 'bg-yellow-600 text-white';
+        } else if (order.status === 'abgeholt') {
+          statusClass = 'bg-green-500 text-white';
+          stickerHtml = '<span class="ml-2 inline-block bg-green-700 text-white text-xs font-semibold px-2 py-0.5 rounded-full">erledigt</span>';
+        }
+
         html += `
           <tr>
             <td class="border px-3 py-1 font-mono">${order.order_number}</td>
             <td class="border px-3 py-1">${new Date(order.order_date).toLocaleDateString('de-DE')}</td>
+            <td class="border px-3 py-1 ${statusClass}">${order.status}${stickerHtml}</td>
             <td class="border px-3 py-1">${order.customer_name}</td>
             <td class="border px-3 py-1">${order.phone}</td>
             <td class="border px-3 py-1">${order.email}</td>
             <td class="border px-3 py-1">${order.description}</td>
             <td class="border px-3 py-1">${order.employer_name}</td>
+            <td class="border px-3 py-1">${order.manufacturer_supplier || ''}</td>
             <td class="border px-3 py-1">${order.selector}</td>
-            <td class="border px-3 py-1">${order.status}</td>
             <td class="border px-3 py-1">${order.status_timestamp ? new Date(order.status_timestamp).toLocaleString('de-DE') : ''}</td>
             <td class="border px-3 py-1">${order.status_employer || ''}</td>
-            <td class="border px-3 py-1 space-x-1">
-              <button class="edit-btn bg-yellow-400 px-2 py-1 rounded text-sm" data-id="${order.id}">Edit</button>
-              <button class="history-btn bg-gray-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">View History</button>
-              <button class="email-btn bg-green-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">Send Email</button>
+            <td class="border px-3 py-1">
+              <div class="flex space-x-1">
+                <button class="edit-btn bg-yellow-400 px-2 py-1 rounded text-sm" data-id="${order.id}">Edit</button>
+                <button class="history-btn bg-gray-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">View History</button>
+                <button class="email-btn bg-green-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">Send Email</button>
+                <button class="print-btn bg-blue-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}" data-number="${order.order_number}">Print</button>
+              </div>
             </td>
           </tr>
         `;
@@ -192,33 +312,6 @@
       });
     }
 
-    orderForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = {
-        customer_name: document.getElementById('customer-name').value,
-        phone: document.getElementById('phone').value,
-        email: document.getElementById('email').value,
-        description: document.getElementById('description').value,
-        employer_name: document.getElementById('employer-name').value,
-        selector: document.getElementById('selector').value
-      };
-      const result = await createOrder(data);
-      if (result.order_number) {
-        currentOrderNumber = result.order_number;
-        orderNumberDiv.textContent = currentOrderNumber;
-        JsBarcode(barcodeCanvas, currentOrderNumber, {
-          format: 'CODE128',
-          width: 2,
-          height: 50,
-          displayValue: false
-        });
-        alert('Order saved with number: ' + currentOrderNumber);
-        resetForm();
-        fetchOrders();
-      } else {
-        alert('Failed to save order');
-      }
-    });
 
     function resetForm() {
       orderForm.reset();
@@ -231,20 +324,37 @@
       fetchOrders(searchInput.value);
     });
 
+    document.getElementById('status-filter-btn').addEventListener('click', () => {
+      const searchValue = document.getElementById('search-input').value;
+      fetchOrders(searchValue);
+    });
+
+    // Also update orders when status filter changes and enter key pressed in search
+    document.getElementById('status-filter').addEventListener('change', () => {
+      const searchValue = document.getElementById('search-input').value;
+      fetchOrders(searchValue);
+    });
+    document.getElementById('search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const searchValue = document.getElementById('search-input').value;
+        fetchOrders(searchValue);
+      }
+    });
+
     // Modal for editing order
     function openEditModal(id) {
       const modalHtml = `
         <div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
           <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3">
-              <h3 class="text-lg font-medium mb-4">Edit Order</h3>
+              <h3 class="text-lg font-medium mb-4">Bestellung bearbeiten</h3>
               <form id="edit-form" class="space-y-4">
                 <div>
-                  <label class="block font-medium mb-1">Customer Name</label>
+                  <label class="block font-medium mb-1">Kunde</label>
                   <input type="text" id="edit-customer-name" class="w-full border rounded px-3 py-2" required>
                 </div>
                 <div>
-                  <label class="block font-medium mb-1">Phone</label>
+                  <label class="block font-medium mb-1">Telefon</label>
                   <input type="tel" id="edit-phone" class="w-full border rounded px-3 py-2" required>
                 </div>
                 <div>
@@ -252,15 +362,19 @@
                   <input type="email" id="edit-email" class="w-full border rounded px-3 py-2" required>
                 </div>
                 <div>
-                  <label class="block font-medium mb-1">Description</label>
+                  <label class="block font-medium mb-1">Beschreibung</label>
                   <textarea id="edit-description" rows="3" class="w-full border rounded px-3 py-2"></textarea>
                 </div>
                 <div>
-                  <label class="block font-medium mb-1">Employer Name</label>
+                  <label class="block font-medium mb-1">Mitarbeiter</label>
                   <input type="text" id="edit-employer-name" class="w-full border rounded px-3 py-2" required>
                 </div>
                 <div>
-                  <label class="block font-medium mb-1">Selector</label>
+                  <label class="block font-medium mb-1">Hersteller/Lieferant</label>
+                  <input type="text" id="edit-manufacturer-supplier" class="w-full border rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Status</label>
                   <select id="edit-selector" class="w-full border rounded px-3 py-2">
                     <option value="Zur Ansicht">Zur Ansicht</option>
                     <option value="Eilt!">Eilt!</option>
@@ -280,16 +394,16 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block font-medium mb-1">Status Employer</label>
+                  <label class="block font-medium mb-1">Geändert von</label>
                   <input type="text" id="edit-status-employer" class="w-full border rounded px-3 py-2" required>
                 </div>
                 <div>
-                  <h4 class="text-lg font-semibold mt-6 mb-2">Order History</h4>
+                  <h4 class="text-lg font-semibold mt-6 mb-2">Bestellungsverlauf</h4>
                   <div id="order-history" class="max-h-48 overflow-y-auto border rounded p-2 bg-gray-50 text-sm text-gray-700"></div>
                 </div>
                 <div class="flex justify-end space-x-2 mt-4">
-                  <button type="button" onclick="closeEditModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Cancel</button>
-                  <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Changes</button>
+                  <button type="button" onclick="closeEditModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Abbrechen</button>
+                  <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Änderungen speichern</button>
                 </div>
               </form>
             </div>
@@ -334,6 +448,7 @@
               email: document.getElementById('edit-email').value,
               description: document.getElementById('edit-description').value,
               employer_name: document.getElementById('edit-employer-name').value,
+              manufacturer_supplier: document.getElementById('edit-manufacturer-supplier').value,
               selector: document.getElementById('edit-selector').value,
               status: document.getElementById('edit-status').value,
               status_employer: document.getElementById('edit-status-employer').value
@@ -381,10 +496,10 @@
         <div id="history-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
           <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3">
-              <h3 class="text-lg font-medium mb-4">Order History</h3>
+              <h3 class="text-lg font-medium mb-4">Bestellungsverlauf</h3>
               <div id="history-content" class="max-h-64 overflow-y-auto border rounded p-2 bg-gray-50 text-sm text-gray-700"></div>
               <div class="flex justify-end mt-4">
-                <button type="button" onclick="closeHistoryModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Close</button>
+                <button type="button" onclick="closeHistoryModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Schließen</button>
               </div>
             </div>
           </div>
@@ -436,9 +551,99 @@
       }
     }
 
+    // PDF Generation function
+    async function generateOrderPDF(id, orderNumber) {
+      try {
+        // Fetch order details
+        const res = await fetch(`/api/orders/${id}`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch order details');
+        }
+        const order = await res.json();
+
+        // Create PDF (size 103x199mm)
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: [103, 199]
+        });
+
+        // Set font
+        doc.setFont('helvetica');
+        
+        // Create temporary canvas for barcode
+        const tempCanvas = document.createElement('canvas');
+        JsBarcode(tempCanvas, orderNumber, {
+          format: 'CODE128',
+          width: 2,
+          height: 20,
+          displayValue: false
+        });
+
+        // Add barcode at the top
+        doc.addImage(tempCanvas.toDataURL(), 'PNG', 10, 5, 83, 20);
+
+        // Add order details
+        doc.setFontSize(12);
+        doc.text(`Bestellung: ${orderNumber}`, 10, 35);
+        doc.text(`Datum: ${new Date(order.order_date).toLocaleDateString('de-DE')}`, 10, 42);
+        
+        doc.setFontSize(10);
+        doc.text(`Kunde: ${order.customer_name}`, 10, 52);
+        doc.text(`Telefon: ${order.phone}`, 10, 59);
+        doc.text(`Email: ${order.email}`, 10, 66);
+        
+        // Add description with word wrap
+        const splitDescription = doc.splitTextToSize(`Beschreibung: ${order.description}`, 83);
+        doc.text(splitDescription, 10, 76);
+
+        doc.text(`Mitarbeiter: ${order.employer_name}`, 10, 96);
+        doc.text(`Status: ${order.selector}`, 10, 103);
+        doc.text(`Status: ${order.status}`, 10, 110);
+
+        // Get PDF data and open in new window
+        const pdfData = doc.output('blob');
+        const blobUrl = URL.createObjectURL(pdfData);
+        const newWindow = window.open(blobUrl, '_blank');
+        
+        // Clean up the blob URL after the window loads
+        if (newWindow) {
+          newWindow.onload = () => {
+            URL.revokeObjectURL(blobUrl);
+          };
+        } else {
+          // If window.open was blocked, clean up the URL immediately
+          URL.revokeObjectURL(blobUrl);
+          throw new Error('Popup was blocked. Please allow popups for this site.');
+        }
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Failed to generate PDF: ' + error.message);
+      }
+    }
+
+    // Add event listeners for print buttons
+    function addPrintButtonListeners() {
+      document.querySelectorAll('.print-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const orderNumber = btn.getAttribute('data-number');
+          generateOrderPDF(id, orderNumber);
+        });
+      });
+    }
+
     // Initialize
     setTodayDate();
     fetchOrders();
+
+    // Add print button listeners after orders are rendered
+    const originalRenderOrders = renderOrders;
+    renderOrders = function(orders) {
+      originalRenderOrders(orders);
+      addPrintButtonListeners();
+    };
   </script>
 </body>
 </html>

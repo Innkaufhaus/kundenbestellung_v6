@@ -28,10 +28,46 @@ const db = new sqlite3.Database('./orders.db', (err) => {
       email TEXT,
       description TEXT,
       employer_name TEXT,
+      manufacturer_supplier TEXT,
       selector TEXT,
       status TEXT DEFAULT 'offen',
       status_timestamp TEXT,
       status_employer TEXT
+    )`);
+
+    // Migration: Add manufacturer_supplier column if it does not exist
+    db.get("PRAGMA table_info(orders)", (err, row) => {
+      if (err) {
+        console.error('Error checking orders table info:', err.message);
+      } else {
+        db.all("PRAGMA table_info(orders)", (err, columns) => {
+          if (err) {
+            console.error('Error fetching orders table columns:', err.message);
+          } else {
+            const columnNames = columns.map(col => col.name);
+            if (!columnNames.includes('manufacturer_supplier')) {
+              db.run("ALTER TABLE orders ADD COLUMN manufacturer_supplier TEXT", (err) => {
+                if (err) {
+                  console.error('Error adding manufacturer_supplier column:', err.message);
+                } else {
+                  console.log('Added manufacturer_supplier column to orders table.');
+                }
+              });
+            }
+          }
+        });
+      }
+    });
+
+    db.run(`CREATE TABLE IF NOT EXISTS order_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER,
+      changed_field TEXT,
+      old_value TEXT,
+      new_value TEXT,
+      changed_by TEXT,
+      changed_at TEXT,
+      FOREIGN KEY(order_id) REFERENCES orders(id)
     )`);
   }
 });
@@ -58,28 +94,41 @@ app.get('/api/orders/:id', (req, res) => {
     } else if (!order) {
       res.status(404).json({ error: 'Order not found' });
     } else {
-      res.json(order);
+      // Also fetch order history
+      db.all('SELECT * FROM order_history WHERE order_id = ? ORDER BY changed_at DESC', [id], (err2, history) => {
+        if (err2) {
+          console.error(err2.message);
+          return res.status(500).json({ error: 'Failed to retrieve order history' });
+        }
+        res.json({ ...order, history });
+      });
     }
   });
 });
 
-// API to get all orders with optional search query
 app.get('/api/orders', (req, res) => {
   const search = req.query.search || '';
-  const sql = `
+  const status = req.query.status || '';
+  let sql = `
     SELECT * FROM orders
-    WHERE order_number LIKE ? OR
+    WHERE (order_number LIKE ? OR
           customer_name LIKE ? OR
           phone LIKE ? OR
           email LIKE ? OR
           description LIKE ? OR
           employer_name LIKE ? OR
-          selector LIKE ? OR
-          status LIKE ?
-    ORDER BY order_date DESC
+          selector LIKE ?)
   `;
-  const likeSearch = '%' + search + '%';
-  db.all(sql, [likeSearch, likeSearch, likeSearch, likeSearch, likeSearch, likeSearch, likeSearch, likeSearch], (err, rows) => {
+  const params = Array(7).fill('%' + search + '%');
+
+  if (status) {
+    sql += ' AND status = ?';
+    params.push(status);
+  }
+
+  sql += ' ORDER BY order_date DESC';
+
+  db.all(sql, params, (err, rows) => {
     if (err) {
       console.error(err.message);
       res.status(500).json({ error: 'Failed to retrieve orders' });
@@ -97,6 +146,7 @@ app.post('/api/orders', (req, res) => {
     email,
     description,
     employer_name,
+    manufacturer_supplier,
     selector
   } = req.body;
 
@@ -104,10 +154,10 @@ app.post('/api/orders', (req, res) => {
   const order_date = new Date().toISOString();
 
   const sql = `INSERT INTO orders 
-    (order_number, order_date, customer_name, phone, email, description, employer_name, selector, status) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'offen')`;
+    (order_number, order_date, customer_name, phone, email, description, employer_name, manufacturer_supplier, selector, status) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'offen')`;
 
-  db.run(sql, [order_number, order_date, customer_name, phone, email, description, employer_name, selector], function(err) {
+  db.run(sql, [order_number, order_date, customer_name, phone, email, description, employer_name, manufacturer_supplier, selector], function(err) {
     if (err) {
       console.error(err.message);
       res.status(500).json({ error: 'Failed to create order' });
@@ -117,7 +167,6 @@ app.post('/api/orders', (req, res) => {
   });
 });
 
-// API to update order status and details
 app.put('/api/orders/:id', (req, res) => {
   const id = req.params.id;
   const {
@@ -126,6 +175,7 @@ app.put('/api/orders/:id', (req, res) => {
     email,
     description,
     employer_name,
+    manufacturer_supplier,
     selector,
     status,
     status_employer
@@ -133,27 +183,129 @@ app.put('/api/orders/:id', (req, res) => {
 
   const status_timestamp = status ? new Date().toISOString() : null;
 
-  const sql = `
-    UPDATE orders SET
-      customer_name = ?,
-      phone = ?,
-      email = ?,
-      description = ?,
-      employer_name = ?,
-      selector = ?,
-      status = ?,
-      status_timestamp = ?,
-      status_employer = ?
-    WHERE id = ?
-  `;
-
-  db.run(sql, [customer_name, phone, email, description, employer_name, selector, status, status_timestamp, status_employer, id], function(err) {
+  // First, get the existing order to compare changes
+  db.get('SELECT * FROM orders WHERE id = ?', [id], (err, oldOrder) => {
     if (err) {
       console.error(err.message);
-      res.status(500).json({ error: 'Failed to update order' });
-    } else {
-      res.json({ message: 'Order updated' });
+      return res.status(500).json({ error: 'Failed to retrieve existing order' });
     }
+    if (!oldOrder) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const sql = `
+      UPDATE orders SET
+        customer_name = ?,
+        phone = ?,
+        email = ?,
+        description = ?,
+        employer_name = ?,
+        manufacturer_supplier = ?,
+        selector = ?,
+        status = ?,
+        status_timestamp = ?,
+        status_employer = ?
+      WHERE id = ?
+    `;
+
+    db.run(sql, [customer_name, phone, email, description, employer_name, manufacturer_supplier, selector, status, status_timestamp, status_employer, id], function(err) {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: 'Failed to update order' });
+      }
+
+      // Log changes to order_history
+      const changes = [];
+      if (oldOrder.status !== status) {
+        changes.push({
+          changed_field: 'status',
+          old_value: oldOrder.status,
+          new_value: status,
+          changed_by: status_employer,
+          changed_at: status_timestamp
+        });
+      }
+      if (oldOrder.customer_name !== customer_name) {
+        changes.push({
+          changed_field: 'customer_name',
+          old_value: oldOrder.customer_name,
+          new_value: customer_name,
+          changed_by: employer_name,
+          changed_at: new Date().toISOString()
+        });
+      }
+      if (oldOrder.phone !== phone) {
+        changes.push({
+          changed_field: 'phone',
+          old_value: oldOrder.phone,
+          new_value: phone,
+          changed_by: employer_name,
+          changed_at: new Date().toISOString()
+        });
+      }
+      if (oldOrder.email !== email) {
+        changes.push({
+          changed_field: 'email',
+          old_value: oldOrder.email,
+          new_value: email,
+          changed_by: employer_name,
+          changed_at: new Date().toISOString()
+        });
+      }
+      if (oldOrder.description !== description) {
+        changes.push({
+          changed_field: 'description',
+          old_value: oldOrder.description,
+          new_value: description,
+          changed_by: employer_name,
+          changed_at: new Date().toISOString()
+        });
+      }
+      if (oldOrder.employer_name !== employer_name) {
+        changes.push({
+          changed_field: 'employer_name',
+          old_value: oldOrder.employer_name,
+          new_value: employer_name,
+          changed_by: employer_name,
+          changed_at: new Date().toISOString()
+        });
+      }
+      if (oldOrder.manufacturer_supplier !== manufacturer_supplier) {
+        changes.push({
+          changed_field: 'manufacturer_supplier',
+          old_value: oldOrder.manufacturer_supplier,
+          new_value: manufacturer_supplier,
+          changed_by: employer_name,
+          changed_at: new Date().toISOString()
+        });
+      }
+      if (oldOrder.selector !== selector) {
+        changes.push({
+          changed_field: 'selector',
+          old_value: oldOrder.selector,
+          new_value: selector,
+          changed_by: employer_name,
+          changed_at: new Date().toISOString()
+        });
+      }
+      if (oldOrder.status_employer !== status_employer) {
+        changes.push({
+          changed_field: 'status_employer',
+          old_value: oldOrder.status_employer,
+          new_value: status_employer,
+          changed_by: status_employer,
+          changed_at: status_timestamp
+        });
+      }
+
+      // Insert changes into order_history
+      changes.forEach(change => {
+        db.run(`INSERT INTO order_history (order_id, changed_field, old_value, new_value, changed_by, changed_at) VALUES (?, ?, ?, ?, ?, ?)`,
+          [id, change.changed_field, change.old_value, change.new_value, change.changed_by, change.changed_at]);
+      });
+
+      res.json({ message: 'Order updated' });
+    });
   });
 });
 
