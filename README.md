@@ -13,7 +13,6 @@ This is a Node.js application for employee customer order tracking with a web in
 - German language interface
 - Manufacturer/Supplier tracking
 - PDF generation with barcode for orders
-- Ready for deployment on Render and GitHub management
 
 ## Recent Updates
 
@@ -56,43 +55,6 @@ The application includes the following fields:
 - Mitarbeiter (Employee) - Employee handling the order
 - Hersteller/Lieferant (Manufacturer/Supplier) - Source of the ordered items
 - Status - Current order status (Zur Ansicht, Eilt!, Intern/Allgemein)
-
-## Deployment on Render
-
-1. Create a new Web Service on [Render](https://render.com/).
-
-2. Connect your GitHub repository containing this project.
-
-3. Set the build command to:
-
-```
-npm install
-```
-
-4. Set the start command to:
-
-```
-npm start
-```
-
-5. Ensure the port is set to `3000` or use the environment variable `PORT`.
-
-6. Add environment variables for your email SMTP configuration (if using email sending):
-
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASS`
-
-Update the `server.js` nodemailer transporter configuration to use these environment variables.
-
-7. Deploy the service.
-
-## GitHub Management
-
-- Push your code to a GitHub repository.
-- Use branches and pull requests for feature development.
-- Use GitHub Actions or other CI/CD tools to automate tests and deployment to Render.
 
 ## Notes
 
