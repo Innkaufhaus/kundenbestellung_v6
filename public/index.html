@@ -11,6 +11,29 @@
     body {
       font-family: 'Roboto', sans-serif;
     }
+    .autocomplete-items {
+      position: absolute;
+      border: 1px solid #d4d4d4;
+      border-top: none;
+      z-index: 999;
+      top: calc(100% + 1px);
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .autocomplete-items div {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .autocomplete-items div:hover {
+      background-color: #e9e9e9;
+    }
+    .autocomplete-active {
+      background-color: #e9e9e9 !important;
+    }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
@@ -58,9 +81,10 @@
           <input type="text" id="employer-name" required class="w-full border rounded px-3 py-2" />
         </div>
 
-        <div>
+        <div class="relative">
           <label for="manufacturer-supplier" class="block font-medium mb-1">Hersteller/Lieferant</label>
-          <input type="text" id="manufacturer-supplier" class="w-full border rounded px-3 py-2" />
+          <input type="text" id="manufacturer-supplier" class="w-full border rounded px-3 py-2" autocomplete="off" />
+          <div id="manufacturer-supplier-list" class="autocomplete-items hidden"></div>
         </div>
 
         <div>
@@ -101,6 +125,136 @@
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
+    // Suppliers data
+    const suppliers = [
+      "5 VALLEYS GmbH",
+      "A.W. Faber Castell Vertrieb GmbH",
+      "ABBACINO",
+      "Action Sports GmbH",
+      "Adolf Riedl GmbH & Co. KG",
+      "Affari AB",
+      "Agentur Anna Upleger 17;30 Home",
+      "Agentur Brigitte Döpgen",
+      "Agentur König",
+      "Agnes Bernrieder GmbH",
+      "Agresti S.r.l.",
+      "AHRI Fashion e.K.",
+      "Albert L.",
+      "Alfred Sternjakob GmbH & Co. KG",
+      "Alpargatas",
+      "Alpenfee Trachten GmbH",
+      "AlpenHerz GmbH",
+      "alpha Tonträger Vertriebs GmbH",
+      "Alraune Lapidaries Edelstein Handels GmbH",
+      "Alveus GmbH",
+      "Alzhaus-Media",
+      "Amarcords S.r.l.",
+      "Amazon",
+      "Ambiente Europe B.V.",
+      "American Heritage GmbH & Co. KG",
+      "Amigo Spiel & Freizeit GmbH",
+      "Amor Gmbh",
+      "Amscan Europe GmbH",
+      "Andersson Import GmbH",
+      "Andersson Supply ApS"
+    ];
+
+    // Autocomplete functionality
+    const manufacturerInput = document.getElementById('manufacturer-supplier');
+    const manufacturerList = document.getElementById('manufacturer-supplier-list');
+    let currentFocus = -1;
+
+    function showAutocompleteItems(input) {
+      const inputValue = input.value.toLowerCase();
+      // Close any already open lists
+      closeAllLists();
+      
+      if (!inputValue) {
+        manufacturerList.classList.add('hidden');
+        return;
+      }
+
+      // Filter matching items
+      const matchingItems = suppliers.filter(supplier => 
+        supplier.toLowerCase().includes(inputValue)
+      );
+
+      if (matchingItems.length > 0) {
+        manufacturerList.classList.remove('hidden');
+        matchingItems.forEach(item => {
+          const div = document.createElement('div');
+          // Highlight the matching part
+          const regex = new RegExp(`(${inputValue})`, 'gi');
+          div.innerHTML = item.replace(regex, '<strong>$1</strong>');
+          div.addEventListener('click', function() {
+            manufacturerInput.value = item;
+            closeAllLists();
+          });
+          manufacturerList.appendChild(div);
+        });
+      }
+    }
+
+    function closeAllLists() {
+      manufacturerList.innerHTML = '';
+      manufacturerList.classList.add('hidden');
+      currentFocus = -1;
+    }
+
+    manufacturerInput.addEventListener('input', function() {
+      showAutocompleteItems(this);
+    });
+
+    manufacturerInput.addEventListener('keydown', function(e) {
+      const items = manufacturerList.getElementsByTagName('div');
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        currentFocus++;
+        addActive(items);
+      } else if (e.key === 'ArrowUp') {
+        currentFocus--;
+        addActive(items);
+      } else if (e.key === 'Enter' && currentFocus > -1) {
+        e.preventDefault();
+        if (items[currentFocus]) {
+          manufacturerInput.value = items[currentFocus].textContent;
+          closeAllLists();
+        }
+      }
+    });
+
+    function addActive(items) {
+      removeActive(items);
+      if (currentFocus >= items.length) currentFocus = 0;
+      if (currentFocus < 0) currentFocus = items.length - 1;
+      items[currentFocus].classList.add('autocomplete-active');
+      
+      // Ensure the active item is visible in the scrollable list
+      const activeItem = items[currentFocus];
+      const listRect = manufacturerList.getBoundingClientRect();
+      const activeRect = activeItem.getBoundingClientRect();
+      
+      if (activeRect.bottom > listRect.bottom) {
+        manufacturerList.scrollTop += activeRect.bottom - listRect.bottom;
+      } else if (activeRect.top < listRect.top) {
+        manufacturerList.scrollTop -= listRect.top - activeRect.top;
+      }
+    }
+
+    function removeActive(items) {
+      Array.from(items).forEach(item => {
+        item.classList.remove('autocomplete-active');
+      });
+    }
+
+    // Close the list when clicking outside
+    document.addEventListener('click', function(e) {
+      if (e.target !== manufacturerInput) {
+        closeAllLists();
+      }
+    });
+
     const orderForm = document.getElementById('order-form');
     const orderDateInput = document.getElementById('order-date');
     const orderNumberDiv = document.getElementById('order-number');
