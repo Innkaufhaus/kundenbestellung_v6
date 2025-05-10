@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kundenbestellung Tracking</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+    }
+    .autocomplete-items {
+      position: absolute;
+      border: 1px solid #d4d4d4;
+      border-top: none;
+      z-index: 999;
+      top: calc(100% + 1px);
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .autocomplete-items div {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .autocomplete-items div:hover {
+      background-color: #e9e9e9;
+    }
+    .autocomplete-active {
+      background-color: #e9e9e9 !important;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+  <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold">Kundenbestellung Tracking</h1>
+      <a href="auftragsübersicht.html" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 transition">Auftragsübersicht</a>
+    </div>
+
+    <section id="order-form-section" class="mb-10">
+      <h2 class="text-xl font-semibold mb-4">Neue Bestellung</h2>
+      <form id="order-form" class="space-y-4 bg-gray-50 p-4 rounded shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <label class="block font-medium mb-1">Kundenbestellung vom:</label>
+            <input type="text" id="order-date" readonly class="border rounded px-3 py-2 bg-gray-200" />
+          </div>
+          <div class="text-center">
+            <label class="block font-medium mb-1">Bestellnummer</label>
+            <div id="order-number" class="text-lg font-mono mb-1"></div>
+            <canvas id="barcode"></canvas>
+          </div>
+        </div>
+
+        <div>
+          <label for="customer-name" class="block font-medium mb-1">Kunde</label>
+          <input type="text" id="customer-name" required class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="phone" class="block font-medium mb-1">Telefon</label>
+            <input type="tel" id="phone" required class="w-full border rounded px-3 py-2" />
+          </div>
+          <div>
+            <label for="email" class="block font-medium mb-1">Email</label>
+            <input type="email" id="email" required class="w-full border rounded px-3 py-2" />
+          </div>
+        </div>
+
+        <div>
+          <label for="description" class="block font-medium mb-1">Beschreibung der Bestellung</label>
+          <textarea id="description" rows="3" class="w-full border rounded px-3 py-2"></textarea>
+        </div>
+
+        <div>
+          <label for="employer-name" class="block font-medium mb-1">Mitarbeiter</label>
+          <input type="text" id="employer-name" required class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <div class="relative">
+          <label for="manufacturer-supplier" class="block font-medium mb-1">Hersteller/Lieferant</label>
+          <input type="text" id="manufacturer-supplier" class="w-full border rounded px-3 py-2" autocomplete="off" />
+          <div id="manufacturer-supplier-list" class="autocomplete-items hidden"></div>
+        </div>
+
+        <div>
+          <label for="selector" class="block font-medium mb-1">Status</label>
+          <select id="selector" class="w-full border rounded px-3 py-2">
+            <option value="Zur Ansicht">Zur Ansicht</option>
+            <option value="Eilt!">Eilt!</option>
+            <option value="Intern/Allgemein">Intern/Allgemein</option>
+          </select>
+        </div>
+
+        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Bestellung speichern</button>
+      </form>
+    </section>
+
+    <section id="orders-section">
+      <h2 class="text-xl font-semibold mb-4">Alle Bestellungen</h2>
+      <div class="mb-4 flex flex-col md:flex-row md:items-center md:space-x-4">
+        <input type="text" id="search-input" placeholder="Bestellungen suchen..." class="w-full md:w-1/2 border rounded px-3 py-2 mb-2 md:mb-0" />
+        <select id="status-filter" class="w-full md:w-1/4 border rounded px-3 py-2">
+          <option value="">Alle Status</option>
+          <option value="offen">offen</option>
+          <option value="bestellt">bestellt</option>
+          <option value="nicht lieferbar">nicht lieferbar</option>
+          <option value="geliefert">geliefert</option>
+          <option value="benachrichtigt">benachrichtigt</option>
+          <option value="abgeholt">abgeholt</option>
+          <option value="abgebrochen">abgebrochen</option>
+        </select>
+        <button id="status-filter-btn" type="button" class="mt-2 md:mt-0 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Show</button>
+      </div>
+      <div id="orders-list" class="overflow-x-auto max-w-full" style="overflow-y: hidden;">
+        <!-- Orders table will be rendered here -->
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    // Suppliers data
+    const suppliers = [
+      "5 VALLEYS GmbH",
+      "A.W. Faber Castell Vertrieb GmbH",
+      "ABBACINO",
+      "Action Sports GmbH",
+      "Adolf Riedl GmbH & Co. KG",
+      "Affari AB",
+      "Agentur Anna Upleger 17;30 Home",
+      "Agentur Brigitte Döpgen",
+      "Agentur König",
+      "Agnes Bernrieder GmbH",
+      "Agresti S.r.l.",
+      "AHRI Fashion e.K.",
+      "Albert L.",
+      "Alfred Sternjakob GmbH & Co. KG",
+      "Alpargatas",
+      "Alpenfee Trachten GmbH",
+      "AlpenHerz GmbH",
+      "alpha Tonträger Vertriebs GmbH",
+      "Alraune Lapidaries Edelstein Handels GmbH",
+      "Alveus GmbH",
+      "Alzhaus-Media",
+      "Amarcords S.r.l.",
+      "Amazon",
+      "Ambiente Europe B.V.",
+      "American Heritage GmbH & Co. KG",
+      "Amigo Spiel & Freizeit GmbH",
+      "Amor Gmbh",
+      "Amscan Europe GmbH",
+      "Andersson Import GmbH",
+      "Andersson Supply ApS"
+    ];
+
+    // Autocomplete functionality
+    const manufacturerInput = document.getElementById('manufacturer-supplier');
+    const manufacturerList = document.getElementById('manufacturer-supplier-list');
+    let currentFocus = -1;
+
+    function showAutocompleteItems(input) {
+      const inputValue = input.value.toLowerCase();
+      // Close any already open lists
+      closeAllLists();
+      
+      if (!inputValue) {
+        manufacturerList.classList.add('hidden');
+        return;
+      }
+
+      // Filter matching items
+      const matchingItems = suppliers.filter(supplier => 
+        supplier.toLowerCase().includes(inputValue)
+      );
+
+      if (matchingItems.length > 0) {
+        manufacturerList.classList.remove('hidden');
+        matchingItems.forEach(item => {
+          const div = document.createElement('div');
+          // Highlight the matching part
+          const regex = new RegExp(`(${inputValue})`, 'gi');
+          div.innerHTML = item.replace(regex, '<strong>$1</strong>');
+          div.addEventListener('click', function() {
+            manufacturerInput.value = item;
+            closeAllLists();
+          });
+          manufacturerList.appendChild(div);
+        });
+      }
+    }
+
+    function closeAllLists() {
+      manufacturerList.innerHTML = '';
+      manufacturerList.classList.add('hidden');
+      currentFocus = -1;
+    }
+
+    manufacturerInput.addEventListener('input', function() {
+      showAutocompleteItems(this);
+    });
+
+    manufacturerInput.addEventListener('keydown', function(e) {
+      const items = manufacturerList.getElementsByTagName('div');
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        currentFocus++;
+        addActive(items);
+      } else if (e.key === 'ArrowUp') {
+        currentFocus--;
+        addActive(items);
+      } else if (e.key === 'Enter' && currentFocus > -1) {
+        e.preventDefault();
+        if (items[currentFocus]) {
+          manufacturerInput.value = items[currentFocus].textContent;
+          closeAllLists();
+        }
+      }
+    });
+
+    function addActive(items) {
+      removeActive(items);
+      if (currentFocus >= items.length) currentFocus = 0;
+      if (currentFocus < 0) currentFocus = items.length - 1;
+      items[currentFocus].classList.add('autocomplete-active');
+      
+      // Ensure the active item is visible in the scrollable list
+      const activeItem = items[currentFocus];
+      const listRect = manufacturerList.getBoundingClientRect();
+      const activeRect = activeItem.getBoundingClientRect();
+      
+      if (activeRect.bottom > listRect.bottom) {
+        manufacturerList.scrollTop += activeRect.bottom - listRect.bottom;
+      } else if (activeRect.top < listRect.top) {
+        manufacturerList.scrollTop -= listRect.top - activeRect.top;
+      }
+    }
+
+    function removeActive(items) {
+      Array.from(items).forEach(item => {
+        item.classList.remove('autocomplete-active');
+      });
+    }
+
+    // Close the list when clicking outside
+    document.addEventListener('click', function(e) {
+      if (e.target !== manufacturerInput) {
+        closeAllLists();
+      }
+    });
+
+    const orderForm = document.getElementById('order-form');
+    const orderDateInput = document.getElementById('order-date');
+    const orderNumberDiv = document.getElementById('order-number');
+    const barcodeCanvas = document.getElementById('barcode');
+    const ordersListDiv = document.getElementById('orders-list');
+    const searchInput = document.getElementById('search-input');
+
+    let currentOrderNumber = '';
+
+    function formatDate(date) {
+      return date.toLocaleDateString('de-DE');
+    }
+
+    function setTodayDate() {
+      const today = new Date();
+      orderDateInput.value = formatDate(today);
+    }
+
+    async function createOrder(data) {
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to save order');
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error('Error creating order:', error);
+        throw error;
+      }
+    }
+
+    orderForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const data = {
+          customer_name: document.getElementById('customer-name').value,
+          phone: document.getElementById('phone').value,
+          email: document.getElementById('email').value,
+          description: document.getElementById('description').value,
+          employer_name: document.getElementById('employer-name').value,
+          manufacturer_supplier: document.getElementById('manufacturer-supplier').value,
+          selector: document.getElementById('selector').value
+        };
+        
+        const result = await createOrder(data);
+        if (result.order_number) {
+          currentOrderNumber = result.order_number;
+          orderNumberDiv.textContent = currentOrderNumber;
+          JsBarcode(barcodeCanvas, currentOrderNumber, {
+            format: 'CODE128',
+            width: 2,
+            height: 50,
+            displayValue: false
+          });
+          alert('Order saved with number: ' + currentOrderNumber);
+          resetForm();
+          fetchOrders();
+        } else {
+          throw new Error('No order number received from server');
+        }
+      } catch (error) {
+        console.error('Error in form submission:', error);
+        alert('Failed to save order: ' + (error.message || 'Unknown error occurred'));
+      }
+    });
+
+    async function fetchOrders(search = '', status = '') {
+      try {
+        let url = '/api/orders?search=' + encodeURIComponent(search);
+        if (status) {
+          url += '&status=' + encodeURIComponent(status);
+        }
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to fetch orders');
+        }
+        
+        const orders = await res.json();
+        renderOrders(orders);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        ordersListDiv.innerHTML = `<p class="text-center text-red-500">Error loading orders: ${error.message}</p>`;
+      }
+    }
+
+    document.getElementById('search-input').addEventListener('input', () => {
+      const searchValue = document.getElementById('search-input').value;
+      const statusValue = document.getElementById('status-filter').value;
+      fetchOrders(searchValue, statusValue);
+    });
+
+    document.getElementById('status-filter-btn').addEventListener('click', () => {
+      const searchValue = document.getElementById('search-input').value;
+      const statusValue = document.getElementById('status-filter').value;
+      fetchOrders(searchValue, statusValue);
+    });
+
+    document.getElementById('status-filter').addEventListener('change', () => {
+      const searchValue = document.getElementById('search-input').value;
+      const statusValue = document.getElementById('status-filter').value;
+      fetchOrders(searchValue, statusValue);
+    });
+
+    document.getElementById('search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const searchValue = document.getElementById('search-input').value;
+        const statusValue = document.getElementById('status-filter').value;
+        fetchOrders(searchValue, statusValue);
+      }
+    });
+
+    function renderOrders(orders) {
+      if (orders.length === 0) {
+        ordersListDiv.innerHTML = '<p class="text-center text-gray-500">No orders found.</p>';
+        return;
+      }
+
+      let html = '<table class="min-w-full border border-gray-300">';
+      html += `
+        <thead class="bg-gray-200">
+          <tr>
+            <th class="border px-3 py-1">Bestellnummer</th>
+            <th class="border px-3 py-1">Datum</th>
+            <th class="border px-3 py-1">Kunde</th>
+            <th class="border px-3 py-1">Telefon</th>
+            <th class="border px-3 py-1">Email</th>
+            <th class="border px-3 py-1">Beschreibung</th>
+            <th class="border px-3 py-1">Mitarbeiter</th>
+            <th class="border px-3 py-1">Hersteller/Lieferant</th>
+            <th class="border px-3 py-1">Status</th>
+            <th class="border px-3 py-1">Letzte Änderung</th>
+            <th class="border px-3 py-1">Geändert von</th>
+            <th class="border px-3 py-1">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+
+      orders.forEach(order => {
+        // Determine status color and sticker
+        let statusClass = '';
+        let stickerHtml = '';
+        if (order.status === 'geliefert') {
+          statusClass = 'bg-yellow-300';
+        } else if (order.status === 'benachrichtigt') {
+          statusClass = 'bg-yellow-600 text-white';
+        } else if (order.status === 'abgeholt') {
+          statusClass = 'bg-green-500 text-white';
+          stickerHtml = '<span class="ml-2 inline-block bg-green-700 text-white text-xs font-semibold px-2 py-0.5 rounded-full">erledigt</span>';
+        }
+
+        html += `
+          <tr>
+            <td class="border px-3 py-1 font-mono">${order.order_number}</td>
+            <td class="border px-3 py-1">${new Date(order.order_date).toLocaleDateString('de-DE')}</td>
+            <td class="border px-3 py-1 ${statusClass}">${order.status}${stickerHtml}</td>
+            <td class="border px-3 py-1">${order.customer_name}</td>
+            <td class="border px-3 py-1">${order.phone}</td>
+            <td class="border px-3 py-1">${order.email}</td>
+            <td class="border px-3 py-1">${order.description}</td>
+            <td class="border px-3 py-1">${order.employer_name}</td>
+            <td class="border px-3 py-1">${order.manufacturer_supplier || ''}</td>
+            <td class="border px-3 py-1">${order.selector}</td>
+            <td class="border px-3 py-1">${order.status_timestamp ? new Date(order.status_timestamp).toLocaleString('de-DE') : ''}</td>
+            <td class="border px-3 py-1">${order.status_employer || ''}</td>
+            <td class="border px-3 py-1">
+              <div class="flex space-x-1">
+                <button class="edit-btn bg-yellow-400 px-2 py-1 rounded text-sm" data-id="${order.id}">Edit</button>
+                <button class="history-btn bg-gray-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">View History</button>
+                <button class="email-btn bg-green-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}">Send Email</button>
+                <button class="print-btn bg-blue-500 text-white px-2 py-1 rounded text-sm" data-id="${order.id}" data-number="${order.order_number}">Print</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      ordersListDiv.innerHTML = html;
+
+      document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          openEditModal(id);
+        });
+      });
+
+      document.querySelectorAll('.history-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          openHistoryModal(id);
+        });
+      });
+
+      document.querySelectorAll('.email-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          openEmailModal(id);
+        });
+      });
+    }
+
+
+    function resetForm() {
+      orderForm.reset();
+      setTodayDate();
+      orderNumberDiv.textContent = '';
+      barcodeCanvas.innerHTML = '';
+    }
+
+    searchInput.addEventListener('input', () => {
+      fetchOrders(searchInput.value);
+    });
+
+    document.getElementById('status-filter-btn').addEventListener('click', () => {
+      const searchValue = document.getElementById('search-input').value;
+      fetchOrders(searchValue);
+    });
+
+    // Also update orders when status filter changes and enter key pressed in search
+    document.getElementById('status-filter').addEventListener('change', () => {
+      const searchValue = document.getElementById('search-input').value;
+      fetchOrders(searchValue);
+    });
+    document.getElementById('search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const searchValue = document.getElementById('search-input').value;
+        fetchOrders(searchValue);
+      }
+    });
+
+    // Modal for editing order
+    function openEditModal(id) {
+      const modalHtml = `
+        <div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+          <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+              <h3 class="text-lg font-medium mb-4">Bestellung bearbeiten</h3>
+              <form id="edit-form" class="space-y-4">
+                <div>
+                  <label class="block font-medium mb-1">Kunde</label>
+                  <input type="text" id="edit-customer-name" class="w-full border rounded px-3 py-2" required>
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Telefon</label>
+                  <input type="tel" id="edit-phone" class="w-full border rounded px-3 py-2" required>
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Email</label>
+                  <input type="email" id="edit-email" class="w-full border rounded px-3 py-2" required>
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Beschreibung</label>
+                  <textarea id="edit-description" rows="3" class="w-full border rounded px-3 py-2"></textarea>
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Mitarbeiter</label>
+                  <input type="text" id="edit-employer-name" class="w-full border rounded px-3 py-2" required>
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Hersteller/Lieferant</label>
+                  <input type="text" id="edit-manufacturer-supplier" class="w-full border rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Status</label>
+                  <select id="edit-selector" class="w-full border rounded px-3 py-2">
+                    <option value="Zur Ansicht">Zur Ansicht</option>
+                    <option value="Eilt!">Eilt!</option>
+                    <option value="Intern/Allgemein">Intern/Allgemein</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Status</label>
+                  <select id="edit-status" class="w-full border rounded px-3 py-2">
+                    <option value="offen">offen</option>
+                    <option value="bestellt">bestellt</option>
+                    <option value="nicht lieferbar">nicht lieferbar</option>
+                    <option value="geliefert">geliefert</option>
+                    <option value="benachrichtigt">benachrichtigt</option>
+                    <option value="abgeholt">abgeholt</option>
+                    <option value="abgebrochen">abgebrochen</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-medium mb-1">Geändert von</label>
+                  <input type="text" id="edit-status-employer" class="w-full border rounded px-3 py-2" required>
+                </div>
+                <div>
+                  <h4 class="text-lg font-semibold mt-6 mb-2">Bestellungsverlauf</h4>
+                  <div id="order-history" class="max-h-48 overflow-y-auto border rounded p-2 bg-gray-50 text-sm text-gray-700"></div>
+                </div>
+                <div class="flex justify-end space-x-2 mt-4">
+                  <button type="button" onclick="closeEditModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Abbrechen</button>
+                  <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Änderungen speichern</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      // Fetch order details and populate form
+      fetch(`/api/orders/${id}`)
+        .then(res => res.json())
+        .then(order => {
+          document.getElementById('edit-customer-name').value = order.customer_name;
+          document.getElementById('edit-phone').value = order.phone;
+          document.getElementById('edit-email').value = order.email;
+          document.getElementById('edit-description').value = order.description;
+          document.getElementById('edit-employer-name').value = order.employer_name;
+          document.getElementById('edit-selector').value = order.selector;
+          document.getElementById('edit-status').value = order.status;
+          document.getElementById('edit-status-employer').value = order.status_employer || '';
+
+          // Render order history
+          const historyDiv = document.getElementById('order-history');
+          if (order.history && order.history.length > 0) {
+            historyDiv.innerHTML = order.history.map(h => {
+              return `<div class="border-b border-gray-300 py-1">
+                <div><strong>${h.changed_field}</strong> changed from <em>${h.old_value || ''}</em> to <em>${h.new_value || ''}</em></div>
+                <div>By: <strong>${h.changed_by || 'Unknown'}</strong> at ${new Date(h.changed_at).toLocaleString('de-DE')}</div>
+              </div>`;
+            }).join('');
+          } else {
+            historyDiv.innerHTML = '<div class="text-gray-500">No changes recorded.</div>';
+          }
+
+          const form = document.getElementById('edit-form');
+          form.onsubmit = async (e) => {
+            e.preventDefault();
+            const updatedData = {
+              customer_name: document.getElementById('edit-customer-name').value,
+              phone: document.getElementById('edit-phone').value,
+              email: document.getElementById('edit-email').value,
+              description: document.getElementById('edit-description').value,
+              employer_name: document.getElementById('edit-employer-name').value,
+              manufacturer_supplier: document.getElementById('edit-manufacturer-supplier').value,
+              selector: document.getElementById('edit-selector').value,
+              status: document.getElementById('edit-status').value,
+              status_employer: document.getElementById('edit-status-employer').value
+            };
+
+            const res = await fetch(`/api/orders/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatedData)
+            });
+
+            if (res.ok) {
+              closeEditModal();
+              fetchOrders();
+              alert('Order updated successfully');
+            } else {
+              alert('Failed to update order');
+            }
+          };
+        })
+        .catch(err => {
+          console.error('Error fetching order:', err);
+          alert('Failed to load order details');
+        });
+    }
+
+    function closeEditModal() {
+      const modal = document.getElementById('edit-modal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    // Modal for sending email
+    function openEmailModal(id) {
+      const toEmail = prompt('Enter recipient email address:');
+      if (toEmail) {
+        sendOrderEmail(id, toEmail);
+      }
+    }
+
+    // Modal for viewing order history
+    function openHistoryModal(id) {
+      const modalHtml = `
+        <div id="history-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+          <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+              <h3 class="text-lg font-medium mb-4">Bestellungsverlauf</h3>
+              <div id="history-content" class="max-h-64 overflow-y-auto border rounded p-2 bg-gray-50 text-sm text-gray-700"></div>
+              <div class="flex justify-end mt-4">
+                <button type="button" onclick="closeHistoryModal()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Schließen</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      // Fetch order history
+      fetch(`/api/orders/${id}`)
+        .then(res => res.json())
+        .then(order => {
+          const historyDiv = document.getElementById('history-content');
+          if (order.history && order.history.length > 0) {
+            historyDiv.innerHTML = order.history.map(h => {
+              return `<div class="border-b border-gray-300 py-1">
+                <div><strong>${h.changed_field}</strong> changed from <em>${h.old_value || ''}</em> to <em>${h.new_value || ''}</em></div>
+                <div>By: <strong>${h.changed_by || 'Unknown'}</strong> at ${new Date(h.changed_at).toLocaleString('de-DE')}</div>
+              </div>`;
+            }).join('');
+          } else {
+            historyDiv.innerHTML = '<div class="text-gray-500">No changes recorded.</div>';
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching order history:', err);
+          alert('Failed to load order history');
+        });
+    }
+
+    function closeHistoryModal() {
+      const modal = document.getElementById('history-modal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    async function sendOrderEmail(id, toEmail) {
+      const res = await fetch(`/api/orders/${id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toEmail })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('Email sent successfully');
+      } else {
+        alert('Failed to send email: ' + (result.error || 'Unknown error'));
+      }
+    }
+
+    // PDF Generation function
+    async function generateOrderPDF(id, orderNumber) {
+      try {
+        // Fetch order details
+        const res = await fetch(`/api/orders/${id}`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch order details');
+        }
+        const order = await res.json();
+
+        // Create PDF (size 103x199mm)
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: [103, 199]
+        });
+
+        // Set font
+        doc.setFont('helvetica');
+        
+        // Create temporary canvas for barcode
+        const tempCanvas = document.createElement('canvas');
+        JsBarcode(tempCanvas, orderNumber, {
+          format: 'CODE128',
+          width: 2,
+          height: 20,
+          displayValue: false
+        });
+
+        // Add barcode at the top
+        doc.addImage(tempCanvas.toDataURL(), 'PNG', 10, 5, 83, 20);
+
+        // Add order details
+        doc.setFontSize(12);
+        doc.text(`Bestellung: ${orderNumber}`, 10, 35);
+        doc.text(`Datum: ${new Date(order.order_date).toLocaleDateString('de-DE')}`, 10, 42);
+        
+        doc.setFontSize(10);
+        doc.text(`Kunde: ${order.customer_name}`, 10, 52);
+        doc.text(`Telefon: ${order.phone}`, 10, 59);
+        doc.text(`Email: ${order.email}`, 10, 66);
+        
+        // Add description with word wrap
+        const splitDescription = doc.splitTextToSize(`Beschreibung: ${order.description}`, 83);
+        doc.text(splitDescription, 10, 76);
+
+        doc.text(`Mitarbeiter: ${order.employer_name}`, 10, 96);
+        doc.text(`Status: ${order.selector}`, 10, 103);
+        doc.text(`Status: ${order.status}`, 10, 110);
+
+        // Get PDF data and open in new window
+        const pdfData = doc.output('blob');
+        const blobUrl = URL.createObjectURL(pdfData);
+        const newWindow = window.open(blobUrl, '_blank');
+        
+        // Clean up the blob URL after the window loads
+        if (newWindow) {
+          newWindow.onload = () => {
+            URL.revokeObjectURL(blobUrl);
+          };
+        } else {
+          // If window.open was blocked, clean up the URL immediately
+          URL.revokeObjectURL(blobUrl);
+          throw new Error('Popup was blocked. Please allow popups for this site.');
+        }
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Failed to generate PDF: ' + error.message);
+      }
+    }
+
+    // Add event listeners for print buttons
+    function addPrintButtonListeners() {
+      document.querySelectorAll('.print-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const orderNumber = btn.getAttribute('data-number');
+          generateOrderPDF(id, orderNumber);
+        });
+      });
+    }
+
+    // Initialize
+    setTodayDate();
+    fetchOrders();
+
+    // Add print button listeners after orders are rendered
+    const originalRenderOrders = renderOrders;
+    renderOrders = function(orders) {
+      originalRenderOrders(orders);
+      addPrintButtonListeners();
+    };
+  </script>
+</body>
+</html>

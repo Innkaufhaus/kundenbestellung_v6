@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auftragsübersicht - Kundenbestellung Tracking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .status-offen { background-color: #FEF3C7; color: #92400E; }
+        .status-bestellt { background-color: #DBEAFE; color: #1E40AF; }
+        .status-benachrichtigt { background-color: #FEE2E2; color: #991B1B; }
+        .status-abgeholt { background-color: #D1FAE5; color: #065F46; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Auftragsübersicht</h1>
+            <a href="index.html" class="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 hover:border-gray-300 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clip-rule="evenodd" />
+                </svg>
+                Neue Bestellung
+            </a>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm">
+            <div class="overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">Bestellnummer</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Datum</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Kunde</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Mitarbeiter</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="ordersTableBody">
+                        <!-- Orders will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div class="flex-1 flex justify-between sm:hidden">
+                    <button id="prevPageMobile" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Zurück
+                    </button>
+                    <button id="nextPageMobile" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Weiter
+                    </button>
+                </div>
+                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700" id="paginationInfo">
+                            <!-- Pagination info will be inserted here -->
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" id="pagination">
+                            <!-- Pagination buttons will be inserted here -->
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="details-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="z-index: 1000;">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium">Bestellung Details</h3>
+                <button onclick="closeDetailsModal()" class="text-gray-600 hover:text-gray-900">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Order Form -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block font-medium mb-1">Bestellnummer</label>
+                        <input type="text" id="edit-order-number" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Kunde</label>
+                        <input type="text" id="edit-customer-name" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Telefon</label>
+                        <input type="tel" id="edit-phone" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Email</label>
+                        <input type="email" id="edit-email" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Beschreibung</label>
+                        <textarea id="edit-description" rows="3" class="w-full border rounded px-3 py-2"></textarea>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Mitarbeiter</label>
+                        <input type="text" id="edit-employer-name" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Hersteller/Lieferant</label>
+                        <input type="text" id="edit-manufacturer-supplier" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Auswahl</label>
+                        <select id="edit-selector" class="w-full border rounded px-3 py-2">
+                            <option value="Zur Ansicht">Zur Ansicht</option>
+                            <option value="Eilt!">Eilt!</option>
+                            <option value="Intern/Allgemein">Intern/Allgemein</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Status</label>
+                        <select id="edit-status" class="w-full border rounded px-3 py-2">
+                            <option value="offen">offen</option>
+                            <option value="bestellt">bestellt</option>
+                            <option value="nicht lieferbar">nicht lieferbar</option>
+                            <option value="geliefert">geliefert</option>
+                            <option value="benachrichtigt">benachrichtigt</option>
+                            <option value="abgeholt">abgeholt</option>
+                            <option value="abgebrochen">abgebrochen</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Geändert von</label>
+                        <input type="text" id="edit-status-employer" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <button onclick="saveOrderChanges()" class="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                        Änderungen speichern
+                    </button>
+                </div>
+                <!-- Order History -->
+                <div>
+                    <h4 class="text-lg font-medium mb-3">Bestellungsverlauf</h4>
+                    <div id="order-history" class="bg-gray-50 rounded-lg p-4 h-[600px] overflow-y-auto space-y-3">
+                        <!-- History entries will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let currentPage = 1;
+        const ordersPerPage = 10;
+        let totalOrders = 0;
+        let allOrders = [];
+        let currentOrderId = null;
+
+        // Functions
+        async function fetchOrders() {
+            try {
+                // Mock data for testing
+                allOrders = [
+                    {
+                        id: 1,
+                        order_number: 'ORD250509094451011',
+                        order_date: '2025-09-05',
+                        customer_name: 'Tobias Schuhamcher',
+                        status: 'offen',
+                        employer_name: 'TS'
+                    },
+                    {
+                        id: 2,
+                        order_number: 'ORD250509094106682',
+                        order_date: '2025-09-05',
+                        customer_name: 'Tobias Schuamcher',
+                        status: 'offen',
+                        employer_name: 'ts'
+                    },
+                    {
+                        id: 3,
+                        order_number: 'ORD250509093424659',
+                        order_date: '2025-09-05',
+                        customer_name: 'Tobias Schuhmacher',
+                        status: 'bestellt',
+                        employer_name: 'TS'
+                    },
+                    {
+                        id: 4,
+                        order_number: 'ORD250509084346054',
+                        order_date: '2025-09-05',
+                        customer_name: 'Suddeutsche',
+                        status: 'offen',
+                        employer_name: 'ts'
+                    },
+                    {
+                        id: 5,
+                        order_number: 'ORD250509082206791',
+                        order_date: '2025-09-05',
+                        customer_name: 'Sibylle Schuhmacher',
+                        status: 'benachrichtigt',
+                        employer_name: 'TS'
+                    },
+                    {
+                        id: 6,
+                        order_number: 'ORD250509081425405',
+                        order_date: '2025-09-05',
+                        customer_name: 'Tobias Schuhmacher',
+                        status: 'bestellt',
+                        employer_name: 'ts'
+                    },
+                    {
+                        id: 7,
+                        order_number: 'ORD250509080931146',
+                        order_date: '2025-09-05',
+                        customer_name: 'John Doe',
+                        status: 'offen',
+                        employer_name: 'Test E'
+                    },
+                    {
+                        id: 8,
+                        order_number: 'ORD250508112407700',
+                        order_date: '2025-08-05',
+                        customer_name: 'Tobias Schuhmacher',
+                        status: 'abgeholt',
+                        employer_name: 'ts'
+                    }
+                ];
+                totalOrders = allOrders.length;
+                displayOrders();
+                updatePagination();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function getStatusClass(status) {
+            switch(status.toLowerCase()) {
+                case 'offen':
+                    return 'status-offen';
+                case 'bestellt':
+                    return 'status-bestellt';
+                case 'benachrichtigt':
+                    return 'status-benachrichtigt';
+                case 'abgeholt':
+                    return 'status-abgeholt';
+                default:
+                    return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function renderOrders() {
+            const startIndex = (currentPage - 1) * ordersPerPage;
+            const endIndex = startIndex + ordersPerPage;
+            const ordersToDisplay = allOrders.slice(startIndex, endIndex);
+
+            const tableBody = document.getElementById('ordersTableBody');
+            tableBody.innerHTML = ordersToDisplay.map(order => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${order.order_number}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(order.order_date).toLocaleDateString('de-DE')}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${order.customer_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="status-badge ${getStatusClass(order.status)}">
+                            ${order.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.employer_name || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                        <button type="button"
+                           onclick="openDetailsModal(${order.id})" 
+                           class="text-indigo-600 hover:text-indigo-900 font-medium text-sm cursor-pointer">
+                            Details anzeigen
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            updatePaginationInfo();
+        }
+
+        function displayOrders() {
+            renderOrders();
+        }
+
+        function updatePaginationInfo() {
+            const startIndex = (currentPage - 1) * ordersPerPage + 1;
+            const endIndex = Math.min(currentPage * ordersPerPage, totalOrders);
+            document.getElementById('paginationInfo').textContent = 
+                `Zeige ${startIndex} bis ${endIndex} von ${totalOrders} Aufträgen`;
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(totalOrders / ordersPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            let paginationHTML = `
+                <button onclick="changePage(${currentPage - 1})" 
+                        class="relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${currentPage === 1 ? 'cursor-not-allowed opacity-50' : ''}"
+                        ${currentPage === 1 ? 'disabled' : ''}>
+                    Zurück
+                </button>`;
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === currentPage) {
+                    paginationHTML += `
+                        <button class="z-10 bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            ${i}
+                        </button>`;
+                } else {
+                    paginationHTML += `
+                        <button onclick="changePage(${i})" 
+                                class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            ${i}
+                        </button>`;
+                }
+            }
+
+            paginationHTML += `
+                <button onclick="changePage(${currentPage + 1})" 
+                        class="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${currentPage === totalPages ? 'cursor-not-allowed opacity-50' : ''}"
+                        ${currentPage === totalPages ? 'disabled' : ''}>
+                    Weiter
+                </button>`;
+
+            pagination.innerHTML = paginationHTML;
+        }
+
+        function changePage(newPage) {
+            const totalPages = Math.ceil(totalOrders / ordersPerPage);
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                displayOrders();
+                updatePagination();
+            }
+        }
+
+        async function openDetailsModal(id) {
+            console.log('Opening modal for order:', id);
+            currentOrderId = id;
+            const modal = document.getElementById('details-modal');
+            if (!modal) {
+                console.error('Modal element not found');
+                return;
+            }
+            console.log('Modal element found, removing hidden class');
+            modal.classList.remove('hidden');
+            modal.style.display = 'block';
+            
+            try {
+                // Mock data for testing
+                const order = {
+                    id: id,
+                    order_number: 'ORD250509094451011',
+                    customer_name: 'Tobias Schuhamcher',
+                    phone: '123-456-7890',
+                    email: 'tobias@example.com',
+                    description: 'Test order',
+                    employer_name: 'TS',
+                    manufacturer_supplier: 'Test Supplier',
+                    selector: 'Zur Ansicht',
+                    status: 'offen',
+                    status_employer: 'TS',
+                    history: [
+                        {
+                            changed_field: 'status',
+                            old_value: 'neu',
+                            new_value: 'offen',
+                            changed_by: 'TS',
+                            changed_at: new Date().toISOString()
+                        }
+                    ]
+                };
+                
+                // Populate form fields
+                document.getElementById('edit-order-number').value = order.order_number;
+                document.getElementById('edit-customer-name').value = order.customer_name;
+                document.getElementById('edit-phone').value = order.phone;
+                document.getElementById('edit-email').value = order.email;
+                document.getElementById('edit-description').value = order.description;
+                document.getElementById('edit-employer-name').value = order.employer_name;
+                document.getElementById('edit-manufacturer-supplier').value = order.manufacturer_supplier || '';
+                document.getElementById('edit-selector').value = order.selector || 'Zur Ansicht';
+                document.getElementById('edit-status').value = order.status;
+                document.getElementById('edit-status-employer').value = order.status_employer || '';
+
+                // Display order history
+                const historyDiv = document.getElementById('order-history');
+                if (order.history && order.history.length > 0) {
+                    historyDiv.innerHTML = order.history.map(h => `
+                        <div class="bg-white p-3 rounded shadow-sm border border-gray-200">
+                            <div class="font-medium text-gray-800">
+                                ${h.changed_field} geändert
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                Von: <span class="font-medium">${h.old_value || '-'}</span>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                Zu: <span class="font-medium">${h.new_value || '-'}</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Geändert von ${h.changed_by || 'Unbekannt'} am ${new Date(h.changed_at).toLocaleString('de-DE')}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    historyDiv.innerHTML = '<div class="text-gray-500 text-center">Keine Änderungen aufgezeichnet.</div>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Fehler beim Laden der Bestelldetails');
+            }
+        }
+
+        function closeDetailsModal() {
+            console.log('Closing modal');
+            const modal = document.getElementById('details-modal');
+            if (!modal) {
+                console.error('Modal element not found');
+                return;
+            }
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+            currentOrderId = null;
+        }
+
+        async function saveOrderChanges() {
+            if (!currentOrderId) return;
+
+            const updatedData = {
+                customer_name: document.getElementById('edit-customer-name').value,
+                phone: document.getElementById('edit-phone').value,
+                email: document.getElementById('edit-email').value,
+                description: document.getElementById('edit-description').value,
+                employer_name: document.getElementById('edit-employer-name').value,
+                manufacturer_supplier: document.getElementById('edit-manufacturer-supplier').value,
+                selector: document.getElementById('edit-selector').value,
+                status: document.getElementById('edit-status').value,
+                status_employer: document.getElementById('edit-status-employer').value
+            };
+
+            try {
+                const response = await fetch(`/api/orders/${currentOrderId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
+
+                if (!response.ok) throw new Error('Failed to update order');
+
+                alert('Bestellung erfolgreich aktualisiert');
+                closeDetailsModal();
+                fetchOrders(); // Refresh the orders list
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Fehler beim Speichern der Änderungen');
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('prevPageMobile').addEventListener('click', () => changePage(currentPage - 1));
+        document.getElementById('nextPageMobile').addEventListener('click', () => changePage(currentPage + 1));
+
+        // Close modal when clicking outside
+        document.getElementById('details-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'details-modal') {
+                closeDetailsModal();
+            }
+        });
+
+        // Initial load
+        fetchOrders();
+    </script>
+</body>
+</html>
