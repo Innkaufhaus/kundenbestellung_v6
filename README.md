@@ -1,68 +1,133 @@
-# Order Tracking Application
+# Kundenbestellung Tracking System
 
-This is a Node.js application for employee customer order tracking with a web interface. It uses Express.js backend, SQLite database, and a Tailwind CSS frontend. The app supports order creation, editing, status management, search, barcode generation, and sending order details via email.
+A comprehensive order tracking system for managing customer orders with advanced admin functionality.
 
 ## Features
 
-- Create and track customer orders
-- System-generated order number with barcode
-- Search orders by any field, especially order number
-- Update order status with timestamp and employer confirmation
-- Send order details via email
-- Responsive and modern UI with Tailwind CSS
-- German language interface
-- Manufacturer/Supplier tracking
-- PDF generation with barcode for orders
+### Main Order Management
+- Create new customer orders with detailed information
+- Auto-generated order numbers with barcode
+- Real-time order status tracking
+- Search and filter orders
+- Email notifications
+- PDF generation for orders
 
-## Recent Updates
+### Admin Features
+- Secure admin access with passcode protection (27061975)
+- Database backup functionality
+- Comprehensive order management interface
+  - Bulk status updates
+  - Multi-select operations
+  - Advanced sorting and filtering
+  - Order history tracking
+  - Bulk delete capability
 
-### Version 3 Changes
-- Complete UI translation to German
-- Added new "Hersteller/Lieferant" (Manufacturer/Supplier) field
-- Updated PDF generation with German field labels
-- Database migration support for new fields
-- Improved error handling for form submissions
+### Technical Features
+- SQLite database with automatic migrations
+- Real-time order updates
+- Responsive design with Tailwind CSS
+- Barcode generation for order tracking
+- Detailed logging system
+- Transaction support for bulk operations
 
-## Setup and Run Locally
+## Installation
 
-1. Install dependencies:
-
+1. Clone the repository:
 ```bash
+git clone https://github.com/Innkaufhaus/kundenbestellung_v6.git
+```
+
+2. Install dependencies:
+```bash
+cd kundenbestellung_v4
 npm install
 ```
 
-2. Start the server:
-
+3. Start the server:
 ```bash
-npm start
+PORT=8000 node server.js
 ```
 
-3. Open your browser and go to:
+The application will be available at `http://localhost:8000`
 
-```
-http://localhost:3000/
-```
+## Usage
 
-## Field Descriptions
+### Main Interface
+- Access the main order form at the root URL
+- Create new orders by filling in customer details
+- View and search existing orders in the orders list
+- Use the "Admin" button for administrative functions
 
-The application includes the following fields:
-- Bestellnummer (Order Number) - Automatically generated
-- Datum (Date) - Order creation date
-- Kunde (Customer) - Name of the person ordering
-- Telefon (Phone) - Customer's phone number
-- Email - Customer's email address
-- Beschreibung (Description) - Order details
-- Mitarbeiter (Employee) - Employee handling the order
-- Hersteller/Lieferant (Manufacturer/Supplier) - Source of the ordered items
-- Status - Current order status (Zur Ansicht, Eilt!, Intern/Allgemein)
+### Admin Orders Management
+- Click "Manage Orders" button in the main interface
+- Use bulk selection checkboxes to select multiple orders
+- Apply status changes or delete operations to selected orders
+- Sort orders by date, status, or customer name
+- Search across all order fields
+- View detailed order history
 
-## Notes
+### Admin Functions
+- Access admin panel via the "Admin" button (passcode: 27061975)
+- Create database backups
+- Manage system settings
 
-- Update the SMTP configuration in `server.js` with your email provider details.
-- The email sending feature requires a valid SMTP server.
-- The database will automatically migrate to add new fields on first run.
-- All UI elements and PDF generation use German language labels.
+## API Endpoints
+
+### Orders
+- `GET /api/orders` - List all orders with search and filter support
+- `GET /api/orders/:id` - Get single order details with history
+- `POST /api/orders` - Create new order
+- `PUT /api/orders/:id` - Update order details
+- `POST /api/orders/:id/send-email` - Send order details via email
+
+### Bulk Operations
+- `PUT /api/orders/bulk-status` - Update status for multiple orders
+- `DELETE /api/orders/bulk-delete` - Delete multiple orders
+
+### Admin
+- `GET /api/admin/backup` - Create database backup
+
+## Security
+
+- Admin access is protected with a passcode
+- All bulk operations are executed within transactions
+- Order history is maintained for all changes
+- Input validation on all endpoints
+
+## Database Schema
+
+### Orders Table
+- id (PRIMARY KEY)
+- order_number (UNIQUE)
+- order_date
+- customer_name
+- phone
+- email
+- description
+- employer_name
+- manufacturer_supplier
+- selector
+- status
+- status_timestamp
+- status_employer
+
+### Order History Table
+- id (PRIMARY KEY)
+- order_id (FOREIGN KEY)
+- changed_field
+- old_value
+- new_value
+- changed_by
+- changed_at
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
 
 ## License
 
-MIT License
+This project is proprietary software. All rights reserved.
