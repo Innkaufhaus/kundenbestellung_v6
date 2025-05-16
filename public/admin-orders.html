@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Orders Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+  <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold">Admin Orders Management</h1>
+      <a href="/" class="text-blue-600 hover:text-blue-800">← Back to Main</a>
+    </div>
+
+    <!-- Filters and Actions -->
+    <div class="mb-6 space-y-4">
+      <div class="flex flex-wrap gap-4">
+        <div class="flex-1 min-w-[200px]">
+          <input type="text" id="search-input" placeholder="Search orders..." 
+                 class="w-full border rounded px-3 py-2" />
+        </div>
+        <div class="w-48">
+          <select id="status-filter" class="w-full border rounded px-3 py-2">
+            <option value="">All Status</option>
+            <option value="offen">offen</option>
+            <option value="bestellt">bestellt</option>
+            <option value="nicht lieferbar">nicht lieferbar</option>
+            <option value="geliefert">geliefert</option>
+            <option value="benachrichtigt">benachrichtigt</option>
+            <option value="abgeholt">abgeholt</option>
+            <option value="abgebrochen">abgebrochen</option>
+          </select>
+        </div>
+        <div class="w-48">
+          <select id="sort-by" class="w-full border rounded px-3 py-2">
+            <option value="date-desc">Date (Newest First)</option>
+            <option value="date-asc">Date (Oldest First)</option>
+            <option value="status">Status</option>
+            <option value="customer">Customer Name</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Bulk Actions -->
+      <div class="flex gap-4 items-center bg-gray-50 p-4 rounded">
+        <span class="font-medium">Bulk Actions:</span>
+        <select id="bulk-status" class="border rounded px-3 py-2">
+          <option value="">Change Status To...</option>
+          <option value="offen">offen</option>
+          <option value="bestellt">bestellt</option>
+          <option value="nicht lieferbar">nicht lieferbar</option>
+          <option value="geliefert">geliefert</option>
+          <option value="benachrichtigt">benachrichtigt</option>
+          <option value="abgeholt">abgeholt</option>
+          <option value="abgebrochen">abgebrochen</option>
+        </select>
+        <button id="apply-status" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Apply Status
+        </button>
+        <button id="delete-selected" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+          Delete Selected
+        </button>
+        <div class="ml-auto">
+          <span id="selected-count" class="text-gray-600">0 items selected</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="overflow-x-auto">
+      <table class="min-w-full border border-gray-300">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="border px-4 py-2">
+              <input type="checkbox" id="select-all" class="rounded">
+            </th>
+            <th class="border px-4 py-2">Order Number</th>
+            <th class="border px-4 py-2">Date</th>
+            <th class="border px-4 py-2">Customer</th>
+            <th class="border px-4 py-2">Status</th>
+            <th class="border px-4 py-2">Description</th>
+            <th class="border px-4 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="orders-table-body">
+          <!-- Orders will be populated here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let orders = [];
+      let selectedOrders = new Set();
+
+      // Initialize
+      fetchOrders();
+
+      // Event Listeners
+      document.getElementById('search-input').addEventListener('input', filterOrders);
+      document.getElementById('status-filter').addEventListener('change', filterOrders);
+      document.getElementById('sort-by').addEventListener('change', sortOrders);
+      document.getElementById('select-all').addEventListener('change', toggleSelectAll);
+      document.getElementById('apply-status').addEventListener('click', applyBulkStatus);
+      document.getElementById('delete-selected').addEventListener('click', deleteSelected);
+
+      async function fetchOrders() {
+        try {
+          const response = await fetch('/api/orders');
+          orders = await response.json();
+          renderOrders(orders);
+        } catch (error) {
+          console.error('Error fetching orders:', error);
+        }
+      }
+
+      function renderOrders(ordersToRender) {
+        const tbody = document.getElementById('orders-table-body');
+        tbody.innerHTML = ordersToRender.map(order => `
+          <tr class="hover:bg-gray-50">
+            <td class="border px-4 py-2 text-center">
+              <input type="checkbox" class="order-checkbox rounded" 
+                     data-id="${order.id}" 
+                     ${selectedOrders.has(order.id) ? 'checked' : ''}>
+            </td>
+            <td class="border px-4 py-2 font-mono">${order.order_number}</td>
+            <td class="border px-4 py-2">${new Date(order.order_date).toLocaleDateString('de-DE')}</td>
+            <td class="border px-4 py-2">${order.customer_name}</td>
+            <td class="border px-4 py-2">
+              <span class="px-2 py-1 rounded ${getStatusClass(order.status)}">
+                ${order.status}
+              </span>
+            </td>
+            <td class="border px-4 py-2">${order.description}</td>
+            <td class="border px-4 py-2">
+              <div class="flex space-x-2">
+                <button onclick="editOrder(${order.id})" 
+                        class="bg-blue-500 text-white px-2 py-1 rounded text-sm">
+                  Edit
+                </button>
+                <button onclick="viewHistory(${order.id})"
+                        class="bg-gray-500 text-white px-2 py-1 rounded text-sm">
+                  History
+                </button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+
+        // Reattach checkbox listeners
+        document.querySelectorAll('.order-checkbox').forEach(checkbox => {
+          checkbox.addEventListener('change', updateSelectedCount);
+        });
+
+        updateSelectedCount();
+      }
+
+      function getStatusClass(status) {
+        const classes = {
+          'offen': 'bg-gray-200',
+          'bestellt': 'bg-blue-200',
+          'nicht lieferbar': 'bg-red-200',
+          'geliefert': 'bg-yellow-200',
+          'benachrichtigt': 'bg-purple-200',
+          'abgeholt': 'bg-green-200 text-green-800',
+          'abgebrochen': 'bg-red-200 text-red-800'
+        };
+        return classes[status] || 'bg-gray-200';
+      }
+
+      function filterOrders() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const statusFilter = document.getElementById('status-filter').value;
+        
+        let filtered = orders.filter(order => {
+          const matchesSearch = Object.values(order).some(value => 
+            String(value).toLowerCase().includes(searchTerm)
+          );
+          const matchesStatus = !statusFilter || order.status === statusFilter;
+          return matchesSearch && matchesStatus;
+        });
+
+        sortOrders(filtered);
+      }
+
+      function sortOrders(ordersToSort = orders) {
+        const sortBy = document.getElementById('sort-by').value;
+        
+        let sorted = [...ordersToSort].sort((a, b) => {
+          switch (sortBy) {
+            case 'date-desc':
+              return new Date(b.order_date) - new Date(a.order_date);
+            case 'date-asc':
+              return new Date(a.order_date) - new Date(b.order_date);
+            case 'status':
+              return a.status.localeCompare(b.status);
+            case 'customer':
+              return a.customer_name.localeCompare(b.customer_name);
+            default:
+              return 0;
+          }
+        });
+
+        renderOrders(sorted);
+      }
+
+      function toggleSelectAll(e) {
+        const isChecked = e.target.checked;
+        document.querySelectorAll('.order-checkbox').forEach(checkbox => {
+          checkbox.checked = isChecked;
+          const orderId = parseInt(checkbox.dataset.id);
+          if (isChecked) {
+            selectedOrders.add(orderId);
+          } else {
+            selectedOrders.delete(orderId);
+          }
+        });
+        updateSelectedCount();
+      }
+
+      function updateSelectedCount() {
+        selectedOrders.clear();
+        document.querySelectorAll('.order-checkbox:checked').forEach(checkbox => {
+          selectedOrders.add(parseInt(checkbox.dataset.id));
+        });
+        document.getElementById('selected-count').textContent = 
+          `${selectedOrders.size} items selected`;
+      }
+
+      async function applyBulkStatus() {
+        if (selectedOrders.size === 0) {
+          alert('Please select orders first');
+          return;
+        }
+
+        const newStatus = document.getElementById('bulk-status').value;
+        if (!newStatus) {
+          alert('Please select a status to apply');
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to change the status of ${selectedOrders.size} orders to "${newStatus}"?`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/orders/bulk-status', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderIds: Array.from(selectedOrders),
+              status: newStatus,
+              status_employer: 'Admin' // You might want to get this from a logged-in user
+            })
+          });
+
+          if (!response.ok) throw new Error('Failed to update orders');
+
+          alert('Orders updated successfully');
+          fetchOrders();
+        } catch (error) {
+          console.error('Error updating orders:', error);
+          alert('Failed to update orders');
+        }
+      }
+
+      async function deleteSelected() {
+        if (selectedOrders.size === 0) {
+          alert('Please select orders to delete');
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to delete ${selectedOrders.size} orders? This action cannot be undone.`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/orders/bulk-delete', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderIds: Array.from(selectedOrders)
+            })
+          });
+
+          if (!response.ok) throw new Error('Failed to delete orders');
+
+          alert('Orders deleted successfully');
+          fetchOrders();
+        } catch (error) {
+          console.error('Error deleting orders:', error);
+          alert('Failed to delete orders');
+        }
+      }
+
+      window.editOrder = function(id) {
+        // Redirect to main page with edit modal open
+        window.location.href = `/?edit=${id}`;
+      };
+
+      window.viewHistory = function(id) {
+        // Redirect to main page with history modal open
+        window.location.href = `/?history=${id}`;
+      };
+    });
+  </script>
+</body>
+</html>

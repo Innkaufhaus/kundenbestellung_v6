@@ -366,6 +366,114 @@ Status Employer: ${order.status_employer || 'N/A'}
 });
 
 // Serve frontend
+// Bulk status update endpoint
+app.put('/api/orders/bulk-status', (req, res) => {
+  const { orderIds, status, status_employer } = req.body;
+  
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return res.status(400).json({ error: 'No orders specified' });
+  }
+
+  const status_timestamp = new Date().toISOString();
+  const placeholders = orderIds.map(() => '?').join(',');
+  
+  db.serialize(() => {
+    // Begin transaction
+    db.run('BEGIN TRANSACTION');
+
+    // Update orders
+    db.run(
+      `UPDATE orders SET status = ?, status_timestamp = ?, status_employer = ? WHERE id IN (${placeholders})`,
+      [status, status_timestamp, status_employer, ...orderIds],
+      function(err) {
+        if (err) {
+          console.error('Error updating orders:', err);
+          db.run('ROLLBACK');
+          return res.status(500).json({ error: 'Failed to update orders' });
+        }
+
+        // Add history records for each order
+        const stmt = db.prepare(
+          'INSERT INTO order_history (order_id, changed_field, old_value, new_value, changed_by, changed_at) VALUES (?, ?, ?, ?, ?, ?)'
+        );
+
+        // Get old status for each order and create history records
+        db.all(
+          `SELECT id, status FROM orders WHERE id IN (${placeholders})`,
+          orderIds,
+          (err, orders) => {
+            if (err) {
+              console.error('Error fetching order details:', err);
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: 'Failed to create history records' });
+            }
+
+            orders.forEach(order => {
+              stmt.run(
+                order.id,
+                'status',
+                order.status,
+                status,
+                status_employer,
+                status_timestamp
+              );
+            });
+
+            stmt.finalize();
+            db.run('COMMIT');
+            res.json({ message: 'Orders updated successfully' });
+          }
+        );
+      }
+    );
+  });
+});
+
+// Bulk delete endpoint
+app.delete('/api/orders/bulk-delete', (req, res) => {
+  const { orderIds } = req.body;
+  
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return res.status(400).json({ error: 'No orders specified' });
+  }
+
+  const placeholders = orderIds.map(() => '?').join(',');
+  
+  db.serialize(() => {
+    // Begin transaction
+    db.run('BEGIN TRANSACTION');
+
+    // Delete order history first (due to foreign key constraint)
+    db.run(
+      `DELETE FROM order_history WHERE order_id IN (${placeholders})`,
+      orderIds,
+      function(err) {
+        if (err) {
+          console.error('Error deleting order history:', err);
+          db.run('ROLLBACK');
+          return res.status(500).json({ error: 'Failed to delete order history' });
+        }
+
+        // Then delete the orders
+        db.run(
+          `DELETE FROM orders WHERE id IN (${placeholders})`,
+          orderIds,
+          function(err) {
+            if (err) {
+              console.error('Error deleting orders:', err);
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: 'Failed to delete orders' });
+            }
+
+            db.run('COMMIT');
+            res.json({ message: 'Orders deleted successfully' });
+          }
+        );
+      }
+    );
+  });
+});
+
 // Admin backup endpoint
 app.get('/api/admin/backup', (req, res) => {
   const passcode = req.query.passcode;
