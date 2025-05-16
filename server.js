@@ -1,4 +1,4 @@
-const express = require('express');
+  const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
@@ -366,6 +366,28 @@ Status Employer: ${order.status_employer || 'N/A'}
 });
 
 // Serve frontend
+// Admin backup endpoint
+app.get('/api/admin/backup', (req, res) => {
+  const passcode = req.query.passcode;
+  if (passcode !== '27061975') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  db.serialize(() => {
+    db.all('SELECT * FROM orders', (err, orders) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to fetch orders' });
+      }
+      db.all('SELECT * FROM order_history', (err2, history) => {
+        if (err2) {
+          return res.status(500).json({ error: 'Failed to fetch order history' });
+        }
+        res.json({ orders, order_history: history });
+      });
+    });
+  });
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
