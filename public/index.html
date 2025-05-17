@@ -36,11 +36,49 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
-  <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow">
-    <h1 class="text-3xl font-bold mb-6 text-center">Kundenbestellung Tracking</h1>
+<body class="min-h-screen bg-gray-900">
+  <!-- Main Menu -->
+  <div id="main-menu" class="max-w-4xl mx-auto pt-10 px-4">
+    <h1 class="text-4xl font-bold mb-6 text-center text-white">Kundenbestellung System</h1>
+    
+    <!-- Barcode Scanner Section -->
+    <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+      <div class="flex items-center space-x-4">
+        <div class="flex-grow">
+          <label for="quick-search" class="block text-sm font-medium text-gray-700 mb-1">Schnellsuche</label>
+          <input type="text" id="quick-search" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500" placeholder="Barcode scannen oder Kundenname eingeben..." autofocus>
+        </div>
+        <button onclick="quickSearch()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition h-12 flex items-center">
+          <i class="fas fa-search mr-2"></i> Finden
+        </button>
+      </div>
+    </div>
 
-    <section id="order-form-section" class="mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <button onclick="showSection('new-order')" class="menu-button bg-blue-600 text-white p-8 rounded-lg shadow-lg hover:bg-blue-700 flex flex-col items-center justify-center space-y-4">
+        <i class="fas fa-plus-circle text-4xl"></i>
+        <span class="text-xl font-medium">Neue Kundenbestellung</span>
+      </button>
+      
+      <button onclick="showSection('view-orders')" class="menu-button bg-green-600 text-white p-8 rounded-lg shadow-lg hover:bg-green-700 flex flex-col items-center justify-center space-y-4">
+        <i class="fas fa-list text-4xl"></i>
+        <span class="text-xl font-medium">Kundenbestellungen ansehen</span>
+      </button>
+      
+      <button onclick="showAdminLogin()" class="menu-button bg-gray-700 text-white p-8 rounded-lg shadow-lg hover:bg-gray-800 flex flex-col items-center justify-center space-y-4">
+        <i class="fas fa-cog text-4xl"></i>
+        <span class="text-xl font-medium">Admin Bereich</span>
+      </button>
+      
+      <a href="/admin-orders.html" class="menu-button bg-purple-600 text-white p-8 rounded-lg shadow-lg hover:bg-purple-700 flex flex-col items-center justify-center space-y-4">
+        <i class="fas fa-tasks text-4xl"></i>
+        <span class="text-xl font-medium">Bestellungen verwalten</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- New Order Section -->
+  <div id="new-order-section" class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-xl mt-4 mx-4" style="display: none;">
       <h2 class="text-xl font-semibold mb-4">Neue Bestellung</h2>
       <form id="order-form" class="space-y-4 bg-gray-50 p-4 rounded shadow">
         <div class="flex justify-between items-center">
@@ -84,7 +122,7 @@
         <div class="relative">
           <label for="manufacturer-supplier" class="block font-medium mb-1">Hersteller/Lieferant</label>
           <input type="text" id="manufacturer-supplier" class="w-full border rounded px-3 py-2" autocomplete="off" />
-          <div id="manufacturer-supplier-list" class="autocomplete-items hidden"></div>
+          <div id="manufacturer-supplier-list" class="autocomplete-items" style="display: none;"></div>
         </div>
 
         <div>
@@ -123,7 +161,7 @@
   </div>
 
   <!-- Admin Section -->
-  <div id="admin-section" class="max-w-5xl mx-auto bg-white p-6 rounded shadow hidden mt-4">
+  <div id="admin-section" class="max-w-5xl mx-auto bg-white p-6 rounded shadow mt-4" style="display: none;">
     <h1 class="text-3xl font-bold mb-6 text-center">Admin Section</h1>
     <div class="mb-4 text-center space-x-4">
       <a href="/admin-orders.html" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Manage Orders</a>
@@ -133,31 +171,110 @@
     <div id="backup-status" class="text-center text-gray-700"></div>
   </div>
 
-  <div class="fixed bottom-4 right-4 space-y-2 flex flex-col items-end z-50">
-    <a href="/admin-orders.html" class="bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition shadow-lg">
-      Manage Orders
-    </a>
-    <button id="admin-btn" class="bg-gray-800 text-white px-4 py-2 rounded-full hover:bg-gray-700 transition shadow-lg">
-      <i class="fas fa-cog"></i> Admin
-    </button>
-  </div>
+  <!-- Back to Menu Button -->
+  <button onclick="showSection('main-menu')" class="fixed top-4 left-4 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition shadow-lg" id="back-to-menu" style="display: none;">
+    <i class="fas fa-arrow-left mr-2"></i> Zurück zum Menü
+  </button>
 
-  <!-- Passcode Modal -->
-  <div id="passcode-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <!-- Admin Login Modal -->
+  <div id="admin-login-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
     <div class="bg-white p-6 rounded shadow w-80">
       <h2 class="text-xl font-semibold mb-4">Enter Admin Passcode</h2>
-      <input type="password" id="passcode-input" class="w-full border rounded px-3 py-2 mb-4" placeholder="Passcode" />
+      <input type="password" id="admin-passcode" class="w-full border rounded px-3 py-2 mb-4" placeholder="Passcode" />
       <div class="flex justify-end space-x-2">
-        <button id="passcode-cancel-btn" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Cancel</button>
-        <button id="passcode-submit-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Submit</button>
+        <button onclick="closeAdminLogin()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Cancel</button>
+        <button onclick="verifyAdminPasscode()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Submit</button>
       </div>
-      <p id="passcode-error" class="text-red-600 mt-2 hidden">Incorrect passcode. Please try again.</p>
+      <p id="admin-login-error" class="text-red-600 mt-2" style="display: none;">Incorrect passcode. Please try again.</p>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
+    // Navigation functions
+    function showSection(sectionId) {
+      // Get all sections
+      const sections = {
+        'main-menu': document.getElementById('main-menu'),
+        'new-order': document.getElementById('new-order-section'),
+        'view-orders': document.getElementById('view-orders-section'),
+        'admin': document.getElementById('admin-section')
+      };
+
+      // Hide all sections first
+      Object.values(sections).forEach(section => {
+        if (section) {
+          section.style.display = 'none';
+        }
+      });
+
+      // Show the selected section
+      const selectedSection = sections[sectionId];
+      if (selectedSection) {
+        selectedSection.style.display = 'block';
+        
+        // Initialize section-specific functionality
+        if (sectionId === 'main-menu') {
+          // Focus barcode input when returning to main menu
+          setTimeout(() => {
+            const searchInput = document.getElementById('quick-search');
+            searchInput.value = '';
+            searchInput.focus();
+          }, 100);
+        } else if (sectionId === 'new-order') {
+          setTodayDate();
+        } else if (sectionId === 'view-orders') {
+          fetchOrders();
+        } else if (sectionId === 'admin') {
+          loadSmtpSettings();
+          loadEmailTemplate();
+        }
+      }
+
+      // Handle back button visibility
+      const backButton = document.getElementById('back-to-menu');
+      if (backButton) {
+        backButton.style.display = sectionId === 'main-menu' ? 'none' : 'block';
+      }
+    }
+
+    // Admin Login
+    function showAdminLogin() {
+      const modal = document.getElementById('admin-login-modal');
+      const error = document.getElementById('admin-login-error');
+      const input = document.getElementById('admin-passcode');
+      
+      modal.style.display = 'flex';
+      input.value = '';
+      error.style.display = 'none';
+      input.focus();
+    }
+
+    function closeAdminLogin() {
+      const modal = document.getElementById('admin-login-modal');
+      const error = document.getElementById('admin-login-error');
+      const input = document.getElementById('admin-passcode');
+      
+      modal.style.display = 'none';
+      input.value = '';
+      error.style.display = 'none';
+    }
+
+    function verifyAdminPasscode() {
+      const passcode = document.getElementById('admin-passcode').value;
+      const error = document.getElementById('admin-login-error');
+      
+      if (passcode === '27061975') {
+        closeAdminLogin();
+        showSection('admin');
+      } else {
+        error.style.display = 'block';
+        document.getElementById('admin-passcode').value = '';
+        document.getElementById('admin-passcode').focus();
+      }
+    }
+
     // Suppliers data
     const suppliers = [
       "5 VALLEYS GmbH",
@@ -192,80 +309,202 @@
       "Andersson Supply ApS"
     ];
 
-    // Admin functionality with detailed logging
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('Initializing admin functionality...');
-      
-      const adminBtn = document.getElementById('admin-btn');
-      const adminSection = document.getElementById('admin-section');
-      const passcodeModal = document.getElementById('passcode-modal');
-      const passcodeInput = document.getElementById('passcode-input');
-      const passcodeSubmitBtn = document.getElementById('passcode-submit-btn');
-      const passcodeCancelBtn = document.getElementById('passcode-cancel-btn');
-      const passcodeError = document.getElementById('passcode-error');
-      const backupBtn = document.getElementById('backup-btn');
-      const exitAdminBtn = document.getElementById('exit-admin-btn');
-      const backupStatus = document.getElementById('backup-status');
+    // Quick search functionality
+    async function quickSearch() {
+      const searchTerm = document.getElementById('quick-search').value.trim();
+      if (!searchTerm) return;
 
-      console.log('Admin elements initialized');
-
-      // Show passcode modal when clicking admin button
-      adminBtn.addEventListener('click', () => {
-        console.log('Admin button clicked');
-        passcodeModal.classList.remove('hidden');
-        passcodeInput.value = '';
-        passcodeError.classList.add('hidden');
-        passcodeInput.focus();
-      });
-
-      // Handle passcode submission
-      passcodeSubmitBtn.addEventListener('click', () => {
-        console.log('Attempting passcode submission');
-        const passcode = passcodeInput.value;
+      try {
+        const res = await fetch(`/api/orders?search=${encodeURIComponent(searchTerm)}`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch orders');
+        }
         
-        if (passcode === '27061975') {
-          console.log('Correct passcode entered');
-          passcodeModal.classList.add('hidden');
-          adminSection.classList.remove('hidden');
-          passcodeInput.value = '';
-          passcodeError.classList.add('hidden');
-          backupStatus.textContent = 'Welcome to Admin Section';
-          setTimeout(() => {
-            backupStatus.textContent = '';
-          }, 2000);
+        const orders = await res.json();
+        if (orders.length === 0) {
+          alert('Keine Bestellungen gefunden.');
+          return;
+        }
+
+        if (orders.length === 1) {
+          // If only one order found, show its details
+          showOrderDetails(orders[0]);
         } else {
-          console.log('Incorrect passcode entered');
-          passcodeError.classList.remove('hidden');
-          passcodeInput.value = '';
-          passcodeInput.focus();
+          // If multiple orders found, show them in a modal list
+          showOrdersList(orders);
         }
-      });
+        document.getElementById('quick-search').value = '';
+      } catch (error) {
+        console.error('Error searching orders:', error);
+        alert('Fehler beim Suchen: ' + error.message);
+      }
+    }
 
-      // Handle Enter key in passcode input
-      passcodeInput.addEventListener('keypress', (e) => {
+    function showOrdersList(orders) {
+      const modalHtml = `
+        <div id="orders-list-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div class="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-start mb-4">
+              <h2 class="text-2xl font-bold">Gefundene Bestellungen (${orders.length})</h2>
+              <button onclick="closeOrdersList()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+              </button>
+            </div>
+            
+            <div class="overflow-y-auto flex-grow">
+              <table class="min-w-full border border-gray-300">
+                <thead class="bg-gray-100">
+                  <tr>
+                    <th class="border px-4 py-2">Bestellnr.</th>
+                    <th class="border px-4 py-2">Datum</th>
+                    <th class="border px-4 py-2">Kunde</th>
+                    <th class="border px-4 py-2">Status</th>
+                    <th class="border px-4 py-2">Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${orders.map(order => `
+                    <tr class="hover:bg-gray-50">
+                      <td class="border px-4 py-2 font-mono">${order.order_number}</td>
+                      <td class="border px-4 py-2">${new Date(order.order_date).toLocaleDateString('de-DE')}</td>
+                      <td class="border px-4 py-2">${order.customer_name}</td>
+                      <td class="border px-4 py-2">${order.status}</td>
+                      <td class="border px-4 py-2">
+                        <button onclick="showOrderDetails(${JSON.stringify(order).replace(/"/g, '"')})" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 mr-2">
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function closeOrdersList() {
+      const modal = document.getElementById('orders-list-modal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    function showOrderDetails(order) {
+      const modalHtml = `
+        <div id="order-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div class="flex justify-between items-start mb-4">
+              <h2 class="text-2xl font-bold">Bestellung ${order.order_number}</h2>
+              <button onclick="closeOrderDetails()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+              </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <p class="text-sm text-gray-600">Datum</p>
+                <p class="font-medium">${new Date(order.order_date).toLocaleDateString('de-DE')}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Status</p>
+                <p class="font-medium">${order.status}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Kunde</p>
+                <p class="font-medium">${order.customer_name}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Telefon</p>
+                <p class="font-medium">${order.phone}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Email</p>
+                <p class="font-medium">${order.email}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Mitarbeiter</p>
+                <p class="font-medium">${order.employer_name}</p>
+              </div>
+            </div>
+
+            <div class="mb-6">
+              <p class="text-sm text-gray-600">Beschreibung</p>
+              <p class="font-medium">${order.description}</p>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+              <button onclick="closeOrderDetails()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
+                Schließen
+              </button>
+              <button onclick="editOrder(${order.id})" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                Bearbeiten
+              </button>
+              <button onclick="printOrder(${order.id}, '${order.order_number}')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                Drucken
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function closeOrderDetails() {
+      const modal = document.getElementById('order-details-modal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    function editOrder(id) {
+      closeOrderDetails();
+      openEditModal(id);
+    }
+
+    function printOrder(id, orderNumber) {
+      generateOrderPDF(id, orderNumber);
+    }
+
+    // Handle quick search input
+    document.getElementById('quick-search').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        quickSearch();
+      }
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('Initializing application...');
+      
+      // Initialize sections visibility
+      document.getElementById('main-menu').style.display = 'block';
+      document.getElementById('new-order-section').style.display = 'none';
+      document.getElementById('admin-section').style.display = 'none';
+      document.getElementById('back-to-menu').style.display = 'none';
+      document.getElementById('admin-login-modal').style.display = 'none';
+
+      // Set today's date in the order form
+      setTodayDate();
+
+      // Focus barcode input
+      document.getElementById('barcode-input').focus();
+
+      // Admin passcode handling
+      document.getElementById('admin-passcode').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-          console.log('Enter key pressed in passcode input');
           e.preventDefault();
-          passcodeSubmitBtn.click();
+          verifyAdminPasscode();
         }
-      });
-
-      // Handle passcode cancel
-      passcodeCancelBtn.addEventListener('click', () => {
-        console.log('Passcode entry cancelled');
-        passcodeModal.classList.add('hidden');
-        passcodeInput.value = '';
-        passcodeError.classList.add('hidden');
-      });
-
-      // Handle exit admin section
-      exitAdminBtn.addEventListener('click', () => {
-        console.log('Exiting admin section');
-        adminSection.classList.add('hidden');
       });
 
       // Handle backup database
-      backupBtn.addEventListener('click', async () => {
+      document.getElementById('backup-btn').addEventListener('click', async () => {
         try {
           console.log('Starting database backup');
           backupStatus.textContent = 'Backing up database...';
@@ -308,26 +547,30 @@
 
     let currentFocus = -1;
 
+
+    function closeAllLists() {
+      manufacturerList.innerHTML = '';
+      manufacturerList.style.display = 'none';
+      currentFocus = -1;
+    }
+
     function showAutocompleteItems(input) {
       const inputValue = input.value.toLowerCase();
-      // Close any already open lists
       closeAllLists();
       
       if (!inputValue) {
-        manufacturerList.classList.add('hidden');
+        manufacturerList.style.display = 'none';
         return;
       }
 
-      // Filter matching items
       const matchingItems = suppliers.filter(supplier => 
         supplier.toLowerCase().includes(inputValue)
       );
 
       if (matchingItems.length > 0) {
-        manufacturerList.classList.remove('hidden');
+        manufacturerList.style.display = 'block';
         matchingItems.forEach(item => {
           const div = document.createElement('div');
-          // Highlight the matching part
           const regex = new RegExp(`(${inputValue})`, 'gi');
           div.innerHTML = item.replace(regex, '<strong>$1</strong>');
           div.addEventListener('click', function() {
@@ -337,12 +580,6 @@
           manufacturerList.appendChild(div);
         });
       }
-    }
-
-    function closeAllLists() {
-      manufacturerList.innerHTML = '';
-      manufacturerList.classList.add('hidden');
-      currentFocus = -1;
     }
 
     manufacturerInput.addEventListener('input', function() {
@@ -521,11 +758,11 @@
 
     function renderOrders(orders) {
       if (orders.length === 0) {
-        ordersListDiv.innerHTML = '<p class="text-center text-gray-500">No orders found.</p>';
+        ordersListDiv.innerHTML = '<p class="text-center text-gray-500">Keine Bestellungen gefunden.</p>';
         return;
       }
 
-      let html = '<table class="min-w-full border border-gray-300">';
+      let html = '<table class="min-w-full border border-gray-300 bg-white rounded-lg overflow-hidden">';
       html += `
         <thead class="bg-gray-200">
           <tr>
@@ -932,16 +1169,15 @@
       });
     }
 
-    // Initialize
-    setTodayDate();
-    fetchOrders();
-
     // Add print button listeners after orders are rendered
     const originalRenderOrders = renderOrders;
     renderOrders = function(orders) {
       originalRenderOrders(orders);
       addPrintButtonListeners();
     };
+
+    // Initialize print button listeners
+    addPrintButtonListeners();
   </script>
 </body>
 </html>
